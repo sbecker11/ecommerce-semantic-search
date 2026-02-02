@@ -72,6 +72,28 @@ curl -X POST http://localhost:8081/api/search \
   -d '{"query": "wireless bluetooth headphones"}'
 ```
 
+## Sample Data and Amazon URL 404s
+
+If you load the included sample/seed product data, the **Amazon URLs** returned in search results (e.g. `https://www.amazon.com/dp/B08XYZ123`) may return **404 Not Found** when opened in a browser.
+
+**Cause:** The sample data uses placeholder product IDs (e.g. `B08XYZ123`, `B09ABC456`) that are not real Amazon ASINs. The URLs are built correctly as `https://www.amazon.com/dp/{product_id}`, but those IDs do not correspond to real products on Amazon, so the pages do not exist.
+
+**What works:** Semantic search, embeddings, and the Search API all behave correctly; only the destination links are invalid for sample data.
+
+**Options:**
+
+1. **Use real product data**  
+   Ingest a dataset that contains real Amazon product IDs (and optionally real `amazon_url` or `url` fields). The data pipeline will store them and the Search API will return valid links.
+
+2. **Check which URLs are valid**  
+   From the repo root, run the URL check script to see the HTTP status of each product link:
+   ```bash
+   ./check_amazon_urls.sh
+   ```
+   It reports how many URLs return 200 vs 404 (or other errors).
+
+**Summary:** 404s on Amazon links are expected when using the sample product set. Replace or supplement with real product data to get working links.
+
 ## Fine-tuning
 
 See `evaluation/` directory for fine-tuning scripts and evaluation metrics.
