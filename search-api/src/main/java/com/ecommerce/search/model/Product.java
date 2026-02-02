@@ -36,14 +36,26 @@ public class Product {
     @Column(name = "price", precision = 10, scale = 2)
     private BigDecimal price;
     
+    @Column(name = "unit_price", precision = 10, scale = 2)
+    private BigDecimal unitPrice;
+    
     @Column(name = "rating", precision = 3, scale = 2)
     private BigDecimal rating;
     
     @Column(name = "review_count")
     private Integer reviewCount;
     
+    @Column(name = "ranking")
+    private Integer ranking;
+    
+    @Column(name = "votes")
+    private Integer votes;
+    
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
+    
+    @Column(name = "amazon_url", columnDefinition = "TEXT")
+    private String amazonUrl;
     
     @Column(name = "embedding", columnDefinition = "vector(384)")
     private String embedding; // Stored as string, converted for queries

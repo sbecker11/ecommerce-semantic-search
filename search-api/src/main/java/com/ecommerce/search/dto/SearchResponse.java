@@ -26,9 +26,13 @@ public class SearchResponse {
         private String category;
         private String brand;
         private Double price;
+        private Double unitPrice;
         private Double rating;
         private Integer reviewCount;
+        private Integer ranking;
+        private Integer votes;
         private String imageUrl;
+        private String amazonUrl;
         private Double similarityScore;
         
         public static ProductResult fromProduct(Product product, Double similarityScore) {
@@ -39,9 +43,13 @@ public class SearchResponse {
                 product.getCategory(),
                 product.getBrand(),
                 product.getPrice() != null ? product.getPrice().doubleValue() : null,
+                product.getUnitPrice() != null ? product.getUnitPrice().doubleValue() : null,
                 product.getRating() != null ? product.getRating().doubleValue() : null,
                 product.getReviewCount(),
+                product.getRanking(),
+                product.getVotes(),
                 product.getImageUrl(),
+                product.getAmazonUrl(),
                 similarityScore
             );
         }

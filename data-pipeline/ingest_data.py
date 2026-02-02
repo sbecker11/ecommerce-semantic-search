@@ -81,20 +81,33 @@ def insert_product(conn, product: Dict, embedding: List[float]):
     """Insert product with embedding into database"""
     cursor = conn.cursor()
     try:
+        unit_price = product.get('unit_price') or product.get('price')
+        ranking = product.get('ranking') or product.get('rank')
+        votes = product.get('votes') or product.get('vote_count') or product.get('review_count') or product.get('num_reviews')
+        amazon_url = product.get('amazon_url') or product.get('url') or product.get('product_url')
+        # Generate Amazon URL from product_id if not provided
+        if not amazon_url and product.get('product_id'):
+            product_id = product.get('product_id') or product.get('asin') or product.get('id')
+            amazon_url = f"https://www.amazon.com/dp/{product_id}"
+        
         cursor.execute("""
             INSERT INTO products (
                 product_id, title, description, category, brand,
-                price, rating, review_count, image_url, embedding
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                price, unit_price, rating, review_count, ranking, votes, image_url, amazon_url, embedding
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (product_id) DO UPDATE SET
                 title = EXCLUDED.title,
                 description = EXCLUDED.description,
                 category = EXCLUDED.category,
                 brand = EXCLUDED.brand,
                 price = EXCLUDED.price,
+                unit_price = EXCLUDED.unit_price,
                 rating = EXCLUDED.rating,
                 review_count = EXCLUDED.review_count,
+                ranking = EXCLUDED.ranking,
+                votes = EXCLUDED.votes,
                 image_url = EXCLUDED.image_url,
+                amazon_url = EXCLUDED.amazon_url,
                 embedding = EXCLUDED.embedding,
                 updated_at = CURRENT_TIMESTAMP
         """, (
@@ -104,9 +117,13 @@ def insert_product(conn, product: Dict, embedding: List[float]):
             product.get('category') or product.get('main_cat'),
             product.get('brand'),
             product.get('price'),
+            unit_price,
             product.get('rating') or product.get('average_rating'),
             product.get('review_count') or product.get('num_reviews'),
+            ranking,
+            votes,
             product.get('image_url') or product.get('image'),
+            amazon_url,
             str(embedding)  # Convert list to string for pgvector
         ))
         conn.commit()

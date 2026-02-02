@@ -69,25 +69,35 @@ public class SearchService {
             product.setPrice(new java.math.BigDecimal(row[6].toString()));
         }
         if (row[7] != null) {
-            product.setRating(new java.math.BigDecimal(row[7].toString()));
+            product.setUnitPrice(new java.math.BigDecimal(row[7].toString()));
         }
         if (row[8] != null) {
-            product.setReviewCount(((Number) row[8]).intValue());
+            product.setRating(new java.math.BigDecimal(row[8].toString()));
         }
-        product.setImageUrl((String) row[9]);
-        // Handle embedding which may be PGobject or String
+        if (row[9] != null) {
+            product.setReviewCount(((Number) row[9]).intValue());
+        }
         if (row[10] != null) {
+            product.setRanking(((Number) row[10]).intValue());
+        }
+        if (row[11] != null) {
+            product.setVotes(((Number) row[11]).intValue());
+        }
+        product.setImageUrl((String) row[12]);
+        product.setAmazonUrl((String) row[13]);
+        // Handle embedding which may be PGobject or String
+        if (row[14] != null) {
             // Use reflection to handle PGobject without direct import
-            String className = row[10].getClass().getName();
+            String className = row[14].getClass().getName();
             if (className.equals("org.postgresql.util.PGobject")) {
                 try {
-                    java.lang.reflect.Method getValueMethod = row[10].getClass().getMethod("getValue");
-                    product.setEmbedding((String) getValueMethod.invoke(row[10]));
+                    java.lang.reflect.Method getValueMethod = row[14].getClass().getMethod("getValue");
+                    product.setEmbedding((String) getValueMethod.invoke(row[14]));
                 } catch (Exception e) {
-                    product.setEmbedding(row[10].toString());
+                    product.setEmbedding(row[14].toString());
                 }
             } else {
-                product.setEmbedding(row[10].toString());
+                product.setEmbedding(row[14].toString());
             }
         }
         return product;

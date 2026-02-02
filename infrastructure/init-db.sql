@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS products (
     category VARCHAR(255),
     brand VARCHAR(255),
     price DECIMAL(10, 2),
+    unit_price DECIMAL(10, 2),
     rating DECIMAL(3, 2),
     review_count INTEGER,
+    ranking INTEGER,
+    votes INTEGER,
     image_url TEXT,
+    amazon_url TEXT,
     embedding vector(384),  -- Dimension for all-MiniLM-L6-v2
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
