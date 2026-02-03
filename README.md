@@ -116,6 +116,22 @@ The **embedding service** is ECS Fargate ready: it runs in a container and can b
 
 In all cases, the Search API needs `DB_HOST`, `DB_*` credentials, and `EMBEDDING_SERVICE_URL` pointing at the deployed embedding service (e.g. `https://embedding-alb-xxx.us-east-1.elb.amazonaws.com`).
 
+## Ingestion Pipeline
+
+The `data-pipeline/` script (run locally or on a schedule) is sufficient for small or batch loads. For a more sophisticated, partner-driven pipeline on AWS you can use:
+
+1. **Data partners** write new product data to **designated S3 buckets** (e.g. a landing bucket per partner or per feed).
+2. **S3 event notifications** (e.g. `s3:ObjectCreated:*`) invoke a **Lambda** when new objects arrive.
+3. **Lambda** starts **Glue crawler(s)** (e.g. `glue.start_crawler`) so the new data is discovered and cataloged.
+4. **Glue crawlers** run against the bucket(s), infer schema, and update the **Glue Data Catalog**.
+
+Once the catalog is updated, the step that **loads data into semantic search** (read from S3 or the catalog → call the embedding service → write vectors to Postgres/RDS) can be implemented as:
+
+- A **Glue ETL job** that reads from the Glue Data Catalog (or S3), calls your embedding service API, and writes to your database, or  
+- A **Lambda**, **Step Functions** workflow, or **scheduled job** that runs the same read → embed → load logic (e.g. the existing `ingest_data.py` logic invoked from a job).
+
+This keeps raw data cataloged and queryable in the Data Catalog while the embedding + load step feeds the search system.
+
 ## Fine-tuning
 
 See `evaluation/` directory for fine-tuning scripts and evaluation metrics.
