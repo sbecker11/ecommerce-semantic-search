@@ -88,6 +88,26 @@ docker-compose exec -T postgres psql -U postgres -d ecommerce < infrastructure/u
 ./check_amazon_urls.sh
 ```
 
+## Production: ECS Fargate
+
+The **embedding service** is ECS Fargate ready: it runs in a container and can be deployed to AWS without managing EC2 instances.
+
+**What’s included:**
+
+- **Task definition** — `infrastructure/ecs-task-definition.json` (Fargate, 2 vCPU / 4 GB, health check, CloudWatch logs)
+- **Deploy script** — `infrastructure/deploy.sh` builds the image, pushes to ECR, and updates the ECS service
+
+**Deploy the embedding service:**
+
+1. Create an ECS cluster and service (see [infrastructure/README.md](infrastructure/README.md)).
+2. From `infrastructure/`, run:
+   ```bash
+   ./deploy.sh
+   ```
+   (Set `AWS_REGION`, `ECR_REPO`, `CLUSTER_NAME`, `SERVICE_NAME` if needed.)
+
+The Search API and database are not in the ECS setup; use RDS for Postgres and run the Search API elsewhere (e.g. EC2 or ECS) and point it at the embedding service URL and DB.
+
 ## Fine-tuning
 
 See `evaluation/` directory for fine-tuning scripts and evaluation metrics.
