@@ -47,6 +47,8 @@
 - `ingest_data.py`: Main ingestion script
 - `requirements.txt`: Python dependencies
 
+**Production variant**: For partner-driven ingestion on AWS, see [Partner Ingestion Pipeline (AWS)](#partner-ingestion-pipeline-aws): S3 → Lambda → Glue Crawler → Glue Data Catalog, then an embed+load step (Glue ETL, Lambda, or job) that can reuse this pipeline’s logic.
+
 ### 2. Embedding Service (`embedding-service/`)
 
 **Purpose**: Generate text embeddings using HuggingFace models
@@ -145,7 +147,7 @@
 
 ## Data Flow
 
-### Ingestion Flow
+### Ingestion Flow (simple / batch)
 ```
 Amazon Dataset → Data Pipeline → Embedding Service → PostgreSQL
 ```
@@ -154,6 +156,47 @@ Amazon Dataset → Data Pipeline → Embedding Service → PostgreSQL
 2. For each product, creates searchable text
 3. Calls embedding service to generate vector
 4. Stores product + embedding in database
+
+### Partner Ingestion Pipeline (AWS)
+
+For production, data partners can write to S3; cataloging and embed+load can be automated:
+
+```
+┌─────────────────┐     S3 event      ┌──────────────┐     start      ┌──────────────────┐
+│  Data Partners  │ ────────────────► │   Lambda     │ ──────────────► │  Glue Crawler(s) │
+│  (write files)  │                   │  (trigger)   │                │                  │
+└────────┬────────┘                   └──────────────┘                └────────┬─────────┘
+         │                                                                     │
+         │  write                                                              │  update
+         ▼                                                                     ▼
+┌─────────────────┐                                                   ┌──────────────────┐
+│  S3 Bucket(s)   │                                                   │  Glue Data       │
+│  (landing zone) │                                                   │  Catalog         │
+└────────┬────────┘                                                   └────────┬─────────┘
+         │                                                                     │
+         │  read (or Glue job reads catalog)                                  │  read
+         │         │                                                           │
+         ▼         ▼                                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│  Embed + Load step                                                                      │
+│  (Glue ETL job, Lambda, Step Functions, or scheduled job running ingest_data.py logic) │
+│  • Read from S3 or Glue Data Catalog                                                    │
+│  • Call Embedding Service → get vectors                                                 │
+│  • Write products + embeddings → PostgreSQL / RDS                                       │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Components:**
+
+| Component        | Role |
+|------------------|------|
+| **S3 bucket(s)** | Designated landing zone; partners write new product data (e.g. JSON/CSV) here. |
+| **Lambda**       | Invoked by S3 event (`s3:ObjectCreated:*`); starts Glue crawler(s). |
+| **Glue Crawler** | Scans the bucket(s), infers schema, updates the Glue Data Catalog. |
+| **Glue Data Catalog** | Central catalog of datasets; queryable via Athena, Glue ETL, etc. |
+| **Embed + Load** | Glue ETL job, Lambda, Step Functions, or scheduled job: read from S3/catalog → call embedding service → write to Postgres/RDS. Can reuse logic from `data-pipeline/ingest_data.py`. |
+
+This workflow keeps raw data cataloged and then feeds the semantic search database via the embed+load step.
 
 ### Search Flow
 ```
