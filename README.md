@@ -72,27 +72,21 @@ curl -X POST http://localhost:8081/api/search \
   -d '{"query": "wireless bluetooth headphones"}'
 ```
 
-## Sample Data and Amazon URL 404s
+## Sample Data and Amazon URLs
 
-If you load the included sample/seed product data, the **Amazon URLs** returned in search results (e.g. `https://www.amazon.com/dp/B08XYZ123`) may return **404 Not Found** when opened in a browser.
+The included sample data uses **real Amazon ASINs** for the headphone/earbud products (e.g. Sony WH-1000XM4, Apple AirPods Pro), so `amazon_url` links in search results point to real product pages.
 
-**Cause:** The sample data uses placeholder product IDs (e.g. `B08XYZ123`, `B09ABC456`) that are not real Amazon ASINs. The URLs are built correctly as `https://www.amazon.com/dp/{product_id}`, but those IDs do not correspond to real products on Amazon, so the pages do not exist.
+**If your database was seeded with older placeholder IDs** (e.g. `B08XYZ123`, `B09ABC456`) and links return 404, update existing rows to real ASINs with:
 
-**What works:** Semantic search, embeddings, and the Search API all behave correctly; only the destination links are invalid for sample data.
+```bash
+docker-compose exec -T postgres psql -U postgres -d ecommerce < infrastructure/update_product_ids_to_real_asin.sql
+```
 
-**Options:**
+**Check which URLs are valid** (from repo root):
 
-1. **Use real product data**  
-   Ingest a dataset that contains real Amazon product IDs (and optionally real `amazon_url` or `url` fields). The data pipeline will store them and the Search API will return valid links.
-
-2. **Check which URLs are valid**  
-   From the repo root, run the URL check script to see the HTTP status of each product link:
-   ```bash
-   ./check_amazon_urls.sh
-   ```
-   It reports how many URLs return 200 vs 404 (or other errors).
-
-**Summary:** 404s on Amazon links are expected when using the sample product set. Replace or supplement with real product data to get working links.
+```bash
+./check_amazon_urls.sh
+```
 
 ## Fine-tuning
 
