@@ -47,7 +47,7 @@
 - `ingest_data.py`: Main ingestion script
 - `requirements.txt`: Python dependencies
 
-**Production variant**: For partner-driven ingestion on AWS, see [Partner Ingestion Pipeline (AWS)](#partner-ingestion-pipeline-aws): S3 → Lambda → Glue Crawler → Glue Data Catalog, then an embed+load step (Glue ETL, Lambda, or job) that can reuse this pipeline’s logic.
+**Production variant**: For partner-driven ingestion on AWS, see [Partner Ingestion Pipeline (AWS)](#partner-ingestion-workflow): S3 → Lambda → Glue Crawler → Glue Data Catalog, then an embed+load step (Glue ETL, Lambda, or job) that can reuse this pipeline’s logic.
 
 ### 2. Embedding Service (`embedding-service/`)
 
@@ -157,9 +157,9 @@ Amazon Dataset → Data Pipeline → Embedding Service → PostgreSQL
 3. Calls embedding service to generate vector
 4. Stores product + embedding in database
 
-### Partner Ingestion Pipeline (AWS)
+### Partner Ingestion Pipeline (AWS) {#partner-ingestion-workflow}
 
-For production, data partners can write to S3; cataloging and embed+load can be automated:
+*Partner ingestion workflow.* For production, data partners can write to S3; cataloging and embed+load can be automated:
 
 ```
 ┌─────────────────┐     S3 event      ┌──────────────┐     start      ┌──────────────────┐
