@@ -106,7 +106,15 @@ The **embedding service** is ECS Fargate ready: it runs in a container and can b
    ```
    (Set `AWS_REGION`, `ECR_REPO`, `CLUSTER_NAME`, `SERVICE_NAME` if needed.)
 
-The Search API and database are not in the ECS setup; use RDS for Postgres and run the Search API elsewhere (e.g. EC2 or ECS) and point it at the embedding service URL and DB.
+**Where to run the rest:**
+
+| Component      | Where to run | Notes |
+|----------------|--------------|--------|
+| **Database**   | **Amazon RDS** (PostgreSQL) | Use RDS with the pgvector extension (Postgres 14+). Create a DB subnet group, enable the extension in your schema, and run `init-db.sql` (or equivalent) to create the `products` table and indexes. Point the Search API and data pipeline at the RDS endpoint. |
+| **Search API** | **ECS Fargate**, **EC2**, or **App Runner** | Run the Spring Boot app in a container. ECS Fargate: add a task definition and service for the search-api image (like the embedding service), put an ALB in front, and set env vars `DB_HOST` (RDS endpoint), `EMBEDDING_SERVICE_URL` (embedding service URL, e.g. ALB or service discovery). EC2: run the JAR or container on an instance. App Runner: deploy the container and configure the same env vars. |
+| **Data pipeline** | **Your machine**, **EC2**, or **scheduled job** | Run the ingestion script when you have new data. Optionally run it on a cron (e.g. EC2 or Lambda + Step Functions) or from a CI/CD pipeline. It needs network access to RDS, the embedding service, and (if used) S3 or other data sources. |
+
+In all cases, the Search API needs `DB_HOST`, `DB_*` credentials, and `EMBEDDING_SERVICE_URL` pointing at the deployed embedding service (e.g. `https://embedding-alb-xxx.us-east-1.elb.amazonaws.com`).
 
 ## Fine-tuning
 
