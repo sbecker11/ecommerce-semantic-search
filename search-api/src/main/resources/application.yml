@@ -12,9 +12,7 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
 
 server:
   port: ${SERVER_PORT:8081}
@@ -31,5 +29,14 @@ search:
 
 logging:
   level:
+    root: WARN
     com.ecommerce: INFO
     org.springframework: WARN
+    org.springframework.boot: WARN
+    org.hibernate: WARN
+    org.apache.catalina: WARN
+    com.zaxxer.hikari: WARN
+  file:
+    name: logs/search-api.log
+  pattern:
+    console: "%d{HH:mm:ss} %-5level %logger{36} - %msg%n"

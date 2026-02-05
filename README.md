@@ -34,13 +34,16 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
 
 **Quick setup:**
 
-1. **Start infrastructure**:
+1. **Start all services** (PostgreSQL + embedding service + status checks):
    ```bash
-   docker-compose up -d
+   ./start_system.sh
    ```
 
-2. **Start embedding service**:
+   **Stop all services**: `./stop_system.sh`
+
+2. **Or start individually**:
    ```bash
+   docker-compose up -d postgres
    cd embedding-service
    docker build -t embedding-service .
    docker run -d -p 8080:8080 --name embedding-service embedding-service
@@ -63,6 +66,12 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
    # docker build -t search-api .
    # docker run -d -p 8081:8081 -e DB_HOST=host.docker.internal -e EMBEDDING_SERVICE_URL=http://host.docker.internal:8080/embed search-api
    ```
+
+**Verify services** (with timeouts to avoid hanging):
+```bash
+./test_system.sh
+# Or check embedding health: curl -s --max-time 10 http://localhost:8080/health
+```
 
 ## API Usage
 

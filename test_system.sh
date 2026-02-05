@@ -15,17 +15,48 @@ BOLD='\033[1m'
 # Configuration
 EMBEDDING_SERVICE_URL="${EMBEDDING_SERVICE_URL:-http://localhost:8080}"
 SEARCH_API_URL="${SEARCH_API_URL:-http://localhost:8081}"
+CURL_TIMEOUT="${CURL_TIMEOUT:-10}"  # Prevents hanging when service is down
 
 echo -e "${BOLD}${BLUE}============================================================${NC}"
 echo -e "${BOLD}${BLUE}E-commerce Semantic Search - Quick Test${NC}"
 echo -e "${BOLD}${BLUE}============================================================${NC}\n"
 
+# Test 0: Unit Tests & Coverage
+echo -e "${BLUE}Running Unit Tests & Coverage...${NC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if (cd "${SCRIPT_DIR}/search-api" && ./mvnw test -q) 2>/dev/null; then
+    echo -e "${GREEN}✓ Unit tests passed${NC}"
+    JACOCO_XML="${SCRIPT_DIR}/search-api/target/site/jacoco/jacoco.xml"
+    if [ -f "${JACOCO_XML}" ]; then
+        echo -e "\n${BLUE}Coverage Summary (text):${NC}"
+        python3 -c "
+import xml.etree.ElementTree as ET
+try:
+    tree = ET.parse('${JACOCO_XML}')
+    root = tree.getroot()
+    # Report-level counters are direct children of root
+    for c in root:
+        if c.tag == 'counter':
+            t, m, cv = c.get('type'), int(c.get('missed', 0)), int(c.get('covered', 0))
+            total = m + cv
+            pct = (100 * cv / total) if total > 0 else 0
+            bar = '#' * int(pct / 5) + '-' * (20 - int(pct / 5))
+            print(f'  {t:12} {pct:5.1f}% ({cv:4}/{total:4}) {bar}')
+except Exception as e:
+    print(f'  Could not parse coverage: {e}')
+"
+    fi
+else
+    echo -e "${RED}✗ Unit tests failed${NC}"
+    exit 1
+fi
+
 # Test 1: Embedding Service Health
 echo -e "${BLUE}Testing Embedding Service...${NC}"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${EMBEDDING_SERVICE_URL}/health")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$CURL_TIMEOUT" "${EMBEDDING_SERVICE_URL}/health" 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✓ Embedding service is healthy${NC}"
-    curl -s "${EMBEDDING_SERVICE_URL}/health" | python3 -m json.tool 2>/dev/null || echo "  Response: $(curl -s ${EMBEDDING_SERVICE_URL}/health)"
+    curl -s --max-time "$CURL_TIMEOUT" "${EMBEDDING_SERVICE_URL}/health" | python3 -m json.tool 2>/dev/null || echo "  Response: $(curl -s --max-time $CURL_TIMEOUT ${EMBEDDING_SERVICE_URL}/health)"
 else
     echo -e "${RED}✗ Embedding service is not responding (HTTP $HTTP_CODE)${NC}"
     exit 1
@@ -33,7 +64,7 @@ fi
 
 # Test 2: Search API Health
 echo -e "\n${BLUE}Testing Search API...${NC}"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${SEARCH_API_URL}/api/search/health")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$CURL_TIMEOUT" "${SEARCH_API_URL}/api/search/health" 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "200" ]; then
     echo -e "${GREEN}✓ Search API is healthy${NC}"
 else
@@ -55,7 +86,7 @@ fi
 # Test 4: Search Functionality
 echo -e "\n${BLUE}Testing Search Functionality...${NC}"
 QUERY="wireless headphones"
-RESPONSE=$(curl -s -X POST "${SEARCH_API_URL}/api/search" \
+RESPONSE=$(curl -s --max-time "$CURL_TIMEOUT" -X POST "${SEARCH_API_URL}/api/search" \
     -H "Content-Type: application/json" \
     -d "{\"query\": \"${QUERY}\", \"limit\": 3}")
 
@@ -77,7 +108,7 @@ fi
 echo -e "\n${BLUE}Testing Multiple Search Queries...${NC}"
 QUERIES=("noise cancelling" "Sony audio" "Apple AirPods")
 for query in "${QUERIES[@]}"; do
-    RESPONSE=$(curl -s -X POST "${SEARCH_API_URL}/api/search" \
+    RESPONSE=$(curl -s --max-time "$CURL_TIMEOUT" -X POST "${SEARCH_API_URL}/api/search" \
         -H "Content-Type: application/json" \
         -d "{\"query\": \"${query}\", \"limit\": 1}")
     

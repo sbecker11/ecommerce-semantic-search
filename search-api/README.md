@@ -16,6 +16,22 @@ Spring Boot REST API for semantic product search using vector similarity.
 ./mvnw clean package
 ```
 
+## Unit Tests & Coverage
+
+Run tests:
+
+```bash
+./mvnw test
+```
+
+Generate test coverage report (JaCoCo):
+
+```bash
+./mvnw test
+```
+
+Coverage report is written to `target/site/jacoco/index.html`. Open in a browser to view line-by-line coverage.
+
 ## Run Locally
 
 ```bash
