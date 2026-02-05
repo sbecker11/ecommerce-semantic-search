@@ -16,14 +16,36 @@ BOLD='\033[1m'
 EMBEDDING_SERVICE_URL="${EMBEDDING_SERVICE_URL:-http://localhost:8080}"
 SEARCH_API_URL="${SEARCH_API_URL:-http://localhost:8081}"
 CURL_TIMEOUT="${CURL_TIMEOUT:-10}"  # Prevents hanging when service is down
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Pre-check: Verify all testable system components are running (run first, minimal output if down)
+cd "$SCRIPT_DIR"
+MISSING=()
+if ! docker-compose ps postgres 2>/dev/null | grep -q "Up"; then
+    MISSING+=("PostgreSQL (port 5432)")
+fi
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$CURL_TIMEOUT" "${EMBEDDING_SERVICE_URL}/health" 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" != "200" ]; then
+    MISSING+=("Embedding Service (port 8080)")
+fi
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$CURL_TIMEOUT" "${SEARCH_API_URL}/api/search/health" 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" != "200" ]; then
+    MISSING+=("Search API (port 8081)")
+fi
+if [ ${#MISSING[@]} -gt 0 ]; then
+    for comp in "${MISSING[@]}"; do
+        printf "%-30s not running\n" "$comp"
+    done
+    exit 1
+fi
+
+# All components running - run full test suite
 echo -e "${BOLD}${BLUE}============================================================${NC}"
 echo -e "${BOLD}${BLUE}E-commerce Semantic Search - Quick Test${NC}"
 echo -e "${BOLD}${BLUE}============================================================${NC}\n"
 
 # Test 0: Unit Tests & Coverage
 echo -e "${BLUE}Running Unit Tests & Coverage...${NC}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if (cd "${SCRIPT_DIR}/search-api" && ./mvnw test -q) 2>/dev/null; then
     echo -e "${GREEN}✓ Unit tests passed${NC}"
     JACOCO_XML="${SCRIPT_DIR}/search-api/target/site/jacoco/jacoco.xml"
@@ -117,6 +139,7 @@ for query in "${QUERIES[@]}"; do
         echo -e "${GREEN}✓${NC} '${query}': ${TOTAL} result(s)"
     else
         echo -e "${RED}✗${NC} '${query}': Failed"
+        exit 1
     fi
 done
 
