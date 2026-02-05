@@ -28,8 +28,26 @@ echo -e "${BLUE}Checking prerequisites...${NC}"
 command -v docker >/dev/null 2>&1 || { echo -e "${RED}✗ Docker is required but not installed. Aborting.${NC}" >&2; exit 1; }
 command -v docker-compose >/dev/null 2>&1 || { echo -e "${RED}✗ Docker Compose is required but not installed. Aborting.${NC}" >&2; exit 1; }
 if ! docker info >/dev/null 2>&1; then
-    echo -e "${RED}✗ Docker Desktop is not running. Start Docker Desktop and try again. Aborting.${NC}" >&2
-    exit 1
+    echo -e "${YELLOW}Docker Desktop is not running. Starting Docker Desktop...${NC}"
+    if [ "$(uname)" = "Darwin" ] && [ -d "/Applications/Docker.app" ]; then
+        open -a Docker
+        echo "Waiting for Docker Desktop to start (timeout: 60s)..."
+        for i in $(seq 1 12); do
+            sleep 5
+            if docker info >/dev/null 2>&1; then
+                echo -e "${GREEN}✓ Docker Desktop is running${NC}"
+                break
+            fi
+            if [ $i -eq 12 ]; then
+                echo -e "${RED}✗ Docker Desktop did not start in time. Start it manually and try again. Aborting.${NC}" >&2
+                exit 1
+            fi
+            echo "  Attempt $i/12: waiting..."
+        done
+    else
+        echo -e "${RED}✗ Docker Desktop is not running. Start Docker Desktop and try again. Aborting.${NC}" >&2
+        exit 1
+    fi
 fi
 
 # Java 17+ required for Search API

@@ -58,6 +58,8 @@
 - Sentence Transformers (HuggingFace)
 - Docker/ECS Fargate ready
 
+**Runtime stack**: Docker → Gunicorn → Flask → Sentence Transformers (PyTorch)
+
 **Features**:
 - Single text embedding endpoint
 - Batch embedding endpoint
@@ -93,6 +95,8 @@
 **Purpose**: REST API for semantic product search
 
 **Technology**: Spring Boot 3.2, Java 17
+
+**Runtime stack**: Docker → Java 17 (Eclipse Temurin) → Spring Boot (embedded Tomcat)
 
 **Features**:
 - POST endpoint for semantic search

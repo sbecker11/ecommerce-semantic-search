@@ -26,6 +26,14 @@ echo -e "${BOLD}${BLUE}=========================================================
 echo -e "${BOLD}${BLUE}E-commerce Semantic Search - Service Status${NC}"
 echo -e "${BOLD}${BLUE}============================================================${NC}\n"
 
+# Docker Desktop
+printf "%-30s" "Docker Desktop:"
+if docker info >/dev/null 2>&1; then
+    echo -e "${GREEN}running${NC}"
+else
+    echo -e "${RED}not running${NC}"
+fi
+
 # PostgreSQL
 printf "%-30s" "PostgreSQL (port 5432):"
 if docker-compose ps postgres 2>/dev/null | grep -q "Up"; then

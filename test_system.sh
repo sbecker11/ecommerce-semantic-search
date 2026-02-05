@@ -21,6 +21,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Pre-check: Verify all testable system components are running (run first, minimal output if down)
 cd "$SCRIPT_DIR"
 MISSING=()
+if ! docker info >/dev/null 2>&1; then
+    MISSING+=("Docker Desktop")
+fi
 if ! docker-compose ps postgres 2>/dev/null | grep -q "Up"; then
     MISSING+=("PostgreSQL (port 5432)")
 fi

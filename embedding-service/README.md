@@ -2,6 +2,8 @@
 
 A Flask-based service for generating text embeddings using HuggingFace Sentence Transformers models.
 
+**Runtime stack**: Docker → Gunicorn → Flask → Sentence Transformers (PyTorch)
+
 ## Features
 
 - Uses `sentence-transformers/all-MiniLM-L6-v2` by default (384-dimensional embeddings)

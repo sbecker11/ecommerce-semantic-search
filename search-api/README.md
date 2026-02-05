@@ -2,6 +2,8 @@
 
 Spring Boot REST API for semantic product search using vector similarity.
 
+**Runtime stack**: Docker → Java 17 (Eclipse Temurin) → Spring Boot (embedded Tomcat)
+
 ## Features
 
 - POST endpoint for semantic search

@@ -1,4 +1,4 @@
-# Testing Guide
+./# Testing Guide
 
 This guide explains how to test the E-commerce Semantic Search system.
 
