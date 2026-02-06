@@ -27,36 +27,48 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
-# Step 1: Stop Search API (process on port 8081) and close iTerm2 window with fixed title (macOS)
+# Step 1: Stop Search API - kill process first, then close iTerm2 window
 echo -e "${BLUE}Step 1: Stopping Search API...${NC}"
+
+# Kill the process on port 8081 first (avoids iTerm2 confirmation dialog)
 PID=$(lsof -ti:8081 2>/dev/null)
+PROCESS_KILLED=false
 if [ -n "$PID" ]; then
     kill $PID 2>/dev/null || kill -9 $PID 2>/dev/null
-    echo -e "${GREEN}✓ Search API stopped (port 8081)${NC}"
-else
-    echo -e "${YELLOW}○ Search API not running${NC}"
+    PROCESS_KILLED=true
+    sleep 1  # Give process time to terminate
 fi
 
-# Close iTerm2 window with title "E-commerce Search API" if it exists (matches start_system.sh)
+# Close the (now idle) iTerm2 window containing "search-api"
+WINDOW_CLOSED=false
 if [ "$(uname)" = "Darwin" ]; then
     if [ ! -f "/Applications/iTerm2.app/Contents/MacOS/iTerm2" ] && [ ! -d "/Applications/iTerm.app" ] && [ ! -d "/Applications/iTerm 2.app" ]; then
         echo -e "${RED}✗ Error: iTerm2 is required but not installed. Install from https://iterm2.com${NC}" >&2
         exit 1
     fi
-    if ! osascript 2>/dev/null <<'APPLESCRIPT'; then
+    RESULT=$(osascript 2>/dev/null <<'APPLESCRIPT'
 tell application "iTerm2"
-    set targetTitle to "E-commerce Search API"
     repeat with w in windows
-        if name of w is targetTitle then
+        set winName to name of w
+        if winName contains "search-api" then
             close w
-            exit repeat
+            return "closed"
         end if
     end repeat
+    return "not_found"
 end tell
 APPLESCRIPT
-        echo -e "${RED}✗ Error: AppleScript failed to close iTerm2 window.${NC}" >&2
-        exit 1
+    )
+    if [ "$RESULT" = "closed" ]; then
+        WINDOW_CLOSED=true
     fi
+fi
+
+# Report status
+if [ "$PROCESS_KILLED" = "true" ] || [ "$WINDOW_CLOSED" = "true" ]; then
+    echo -e "${GREEN}✓ Search API stopped${NC}"
+else
+    echo -e "${YELLOW}○ Search API not running${NC}"
 fi
 
 # Step 2: Stop Embedding Service container

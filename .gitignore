@@ -55,6 +55,8 @@ target/
 *.json
 *.parquet
 data/
+backup.sql
+backup_*.sql
 
 # Environment
 .env

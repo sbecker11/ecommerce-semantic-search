@@ -69,11 +69,22 @@ fi
 
 echo -e "${GREEN}✓ Prerequisites OK${NC}\n"
 
-# Step 1: Start PostgreSQL
+# Step 1: Start PostgreSQL (idempotent - skip if already running and healthy)
 echo -e "${BLUE}Step 1: Starting PostgreSQL...${NC}"
-docker-compose up -d postgres
-echo "Waiting for PostgreSQL to be ready..."
-sleep 5
+if docker-compose ps postgres 2>/dev/null | grep -q "Up"; then
+    # Check if we can connect
+    if docker-compose exec -T postgres psql -U postgres -d ecommerce -c "SELECT 1" >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ PostgreSQL already running and healthy${NC}"
+    else
+        echo "PostgreSQL running but not responding, restarting..."
+        docker-compose restart postgres
+        sleep 5
+    fi
+else
+    docker-compose up -d postgres
+    echo "Waiting for PostgreSQL to be ready..."
+    sleep 5
+fi
 
 # Initialize database if needed
 if ! docker-compose exec -T postgres psql -U postgres -d ecommerce -t -c "SELECT 1 FROM products LIMIT 1;" >/dev/null 2>&1; then
@@ -83,18 +94,30 @@ else
     echo -e "${GREEN}✓ Database already initialized${NC}"
 fi
 
-# Step 2: Start Embedding Service
+# Step 2: Start Embedding Service (idempotent - skip if already running and healthy)
 echo -e "\n${BLUE}Step 2: Starting Embedding Service...${NC}"
-if docker ps -a --format '{{.Names}}' | grep -q '^embedding-service$'; then
-    echo "Embedding container exists, restarting..."
-    docker stop embedding-service 2>/dev/null || true
+if docker ps --format '{{.Names}}' | grep -q '^embedding-service$'; then
+    # Container is running - check if healthy
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8080/health 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo -e "${GREEN}✓ Embedding service already running and healthy${NC}"
+    else
+        echo "Embedding service running but not healthy, restarting..."
+        docker stop embedding-service 2>/dev/null || true
+        docker rm embedding-service 2>/dev/null || true
+        docker run -d -p 8080:8080 --name embedding-service embedding-service
+    fi
+elif docker ps -a --format '{{.Names}}' | grep -q '^embedding-service$'; then
+    # Container exists but stopped - remove and start fresh
+    echo "Embedding container stopped, restarting..."
     docker rm embedding-service 2>/dev/null || true
-fi
-
-if docker images -q embedding-service 2>/dev/null | grep -q .; then
-    echo "Starting existing embedding-service image..."
+    docker run -d -p 8080:8080 --name embedding-service embedding-service
+elif docker images -q embedding-service 2>/dev/null | grep -q .; then
+    # Image exists but no container - start it
+    echo "Starting embedding-service from existing image..."
     docker run -d -p 8080:8080 --name embedding-service embedding-service
 else
+    # No image - build and start
     echo "Building embedding service (this may take 15-25 min on first run)..."
     cd embedding-service
     docker build -t embedding-service .
@@ -156,27 +179,34 @@ else
     echo -e "${RED}✗ Database: connection failed${NC}"
 fi
 
-# Step 5: Open Search API in new iTerm2 window (macOS only)
-# Uses fixed window title "E-commerce Search API" - only opens new window if one with that title doesn't exist
-echo -e "\n${BLUE}Step 5: Opening Search API in iTerm2 window...${NC}"
-if [ "$(uname)" != "Darwin" ]; then
-    echo -e "${RED}✗ Error: macOS is required for Search API iTerm2 window.${NC}" >&2
-    exit 1
-fi
-if [ ! -f "/Applications/iTerm2.app/Contents/MacOS/iTerm2" ] && [ ! -d "/Applications/iTerm.app" ] && [ ! -d "/Applications/iTerm 2.app" ]; then
-    echo -e "${RED}✗ Error: iTerm2 is required but not installed. Install from https://iterm2.com${NC}" >&2
-    exit 1
-fi
-# Use mvnw if present, otherwise mvn (Maven wrapper jar may be missing)
-MVN_CMD="./mvnw"
-[ ! -f "$SCRIPT_DIR/search-api/mvnw" ] && MVN_CMD="mvn"
-if osascript 2>/dev/null <<APPLESCRIPT
+# Step 5: Open Search API in new iTerm2 window (idempotent - skip if already running and healthy)
+echo -e "\n${BLUE}Step 5: Starting Search API...${NC}"
+
+# Check if Search API is already running and healthy
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:8081/api/search/health 2>/dev/null || echo "000")
+if [ "$HTTP_CODE" = "200" ]; then
+    echo -e "${GREEN}✓ Search API already running and healthy${NC}"
+else
+    # Need to start Search API in iTerm2 window
+    if [ "$(uname)" != "Darwin" ]; then
+        echo -e "${RED}✗ Error: macOS is required for Search API iTerm2 window.${NC}" >&2
+        exit 1
+    fi
+    if [ ! -f "/Applications/iTerm2.app/Contents/MacOS/iTerm2" ] && [ ! -d "/Applications/iTerm.app" ] && [ ! -d "/Applications/iTerm 2.app" ]; then
+        echo -e "${RED}✗ Error: iTerm2 is required but not installed. Install from https://iterm2.com${NC}" >&2
+        exit 1
+    fi
+    # Use mvnw if present, otherwise mvn (Maven wrapper jar may be missing)
+    MVN_CMD="./mvnw"
+    [ ! -f "$SCRIPT_DIR/search-api/mvnw" ] && MVN_CMD="mvn"
+    if osascript 2>/dev/null <<APPLESCRIPT
 tell application "iTerm2"
-    set targetTitle to "E-commerce Search API"
     set windowExists to false
     activate
+    -- Check for existing window with "search-api" in title
     repeat with w in windows
-        if name of w is targetTitle then
+        set winName to name of w
+        if winName contains "search-api" then
             set windowExists to true
             set index of w to 1
             exit repeat
@@ -185,17 +215,17 @@ tell application "iTerm2"
     if not windowExists then
         create window with default profile
         tell current session of current window
-            set name to targetTitle
-            write text "cd \"${SCRIPT_DIR}/search-api\" && ${MVN_CMD} spring-boot:run"
+            write text " cd \"${SCRIPT_DIR}/search-api\" && ${MVN_CMD} spring-boot:run"
         end tell
     end if
 end tell
 APPLESCRIPT
-then
-    echo -e "${GREEN}✓ Search API window ready (title: E-commerce Search API)${NC}"
-else
-    echo -e "${RED}✗ Error: AppleScript failed to open iTerm2. Start manually: cd search-api && ${MVN_CMD} spring-boot:run${NC}" >&2
-    exit 1
+    then
+        echo -e "${GREEN}✓ Search API window opened${NC}"
+    else
+        echo -e "${RED}✗ Error: AppleScript failed to open iTerm2. Start manually: cd search-api && ${MVN_CMD} spring-boot:run${NC}" >&2
+        exit 1
+    fi
 fi
 
 # Step 6: Wait for Search API to start (Spring Boot startup)
