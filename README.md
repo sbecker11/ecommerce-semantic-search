@@ -1,5 +1,7 @@
 # E-commerce Semantic Search
 
+[![CI](https://github.com/sbecker11/ecommerce-semantic-search/actions/workflows/ci.yml/badge.svg)](https://github.com/sbecker11/ecommerce-semantic-search/actions/workflows/ci.yml)
+
 A comprehensive semantic search solution for e-commerce applications with data engineering pipeline and search API.
 
 ## Architecture
@@ -34,12 +36,18 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
 
 **Quick setup:**
 
-1. **Start all services** (PostgreSQL + embedding service + status checks):
+1. **Start all services** (PostgreSQL + embedding service + Search API):
    ```bash
    ./start_system.sh
    ```
 
-   **Stop all services**: `./stop_system.sh`
+   **Other commands:**
+   ```bash
+   ./stop_system.sh      # Stop all services
+   ./status_system.sh    # Check service status
+   ./backup_system.sh    # Backup database to backup.sql
+   ./restore_system.sh   # Restore database from backup.sql
+   ```
 
 2. **Or start individually**:
    ```bash
