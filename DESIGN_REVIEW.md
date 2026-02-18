@@ -152,6 +152,59 @@ This is a missed opportunity, especially since the infrastructure is already in 
 
 ---
 
+## Scaling to Millions of Amazon Products
+
+The current design is well-suited to tens or low hundreds of thousands of products. Scaling to **millions** of Amazon products would require changes across the data pipeline, embedding service, database, and search API. Below is a concise outline of what would need to change.
+
+### Data Pipeline
+
+- **Batch embeddings and batched commits.** The pipeline must use the embedding service’s `/embed/batch` endpoint (e.g., 100–500 texts per request) and commit in batches (e.g., every 1K–10K rows) instead of one request and one commit per product. At millions of rows, per-row HTTP and commits are untenable.
+- **Parallelism and throughput.** Run multiple ingestion workers (processes or threads), each handling a shard of the dataset (e.g., by file or by key range). Coordinate with a queue (e.g., SQS) or partitioned input (e.g., S3 prefix per worker) so the embedding service and database are fully utilized.
+- **Resilience and observability.** Use connection pooling (e.g., `psycopg2.pool` or SQLAlchemy), retries with backoff for embedding and DB calls, and dead-letter handling for failed products. Emit progress metrics (rows ingested, latency, error counts) and support checkpointing or idempotent runs so ingestion can resume after failures.
+- **Incremental updates.** For ongoing catalog updates, only embed and upsert new or changed products (e.g., by `updated_at` or a change-data-capture feed) instead of full re-ingestion.
+
+### Embedding Service
+
+- **Horizontal scaling.** Run multiple ECS tasks (or Kubernetes replicas) behind a load balancer. The stateless design supports this; ensure clients use the batch API and spread load across replicas.
+- **Throughput and batching.** Tune worker count (e.g., Gunicorn workers) and batch size so that CPU/GPU is saturated without OOM. Add request size limits and timeouts to avoid one large batch taking down a replica.
+- **Optional: dedicated embedding cluster.** For very high throughput, consider a dedicated embedding cluster (e.g., multiple Fargate tasks or GPU instances) used only by the pipeline, separate from the low-latency embedding path used at query time.
+
+### Database and Vector Index
+
+- **Index type and tuning.** For millions of vectors, prefer **HNSW** over IVFFlat for better recall and no training requirement; tune `ef_construction` and `ef_search` for build time vs. query quality. If staying with IVFFlat, increase `lists` (e.g., `sqrt(n)` or more) and create the index only after the table is populated; use `probes` at query time to balance speed and recall.
+- **Resources and connection pooling.** Size RDS (or Aurora) for memory (to hold the index and working set) and CPU. Use connection pooling (e.g., PgBouncer, RDS Proxy) so the search API and pipeline do not exhaust connections.
+- **Read scaling (optional).** Add read replicas for search traffic and keep writes (ingestion) on the primary. Application must route read-only vector queries to replicas.
+- **When to consider a dedicated vector store.** If pgvector becomes a bottleneck (e.g., index size, query latency, or operational limits), consider a vector-native store (e.g., OpenSearch with k-NN, Pinecone, Weaviate) for search, possibly with Postgres remaining as the source of truth for metadata.
+
+### Search API
+
+- **Pagination and limits.** Support cursor- or offset-based pagination so clients can page through large result sets without pulling thousands of rows at once.
+- **Caching.** Cache embedding results for repeated or popular queries (e.g., in-process, Redis, or API Gateway cache) to reduce calls to the embedding service and database.
+- **Rate limiting and protection.** Add rate limiting and timeouts so that traffic spikes or expensive queries do not overwhelm the embedding service or database.
+
+### IaC (CloudFormation) Template Changes
+
+The current template (`infrastructure/cloudformation/ecs-embedding-service.yaml`) deploys only the embedding service (ECS Fargate, ALB, security groups, IAM, ECR, CloudWatch). To support millions of products, the following changes would be needed:
+
+- **Application Auto Scaling.** Add `AWS::ApplicationAutoScaling::ScalableTarget` and `AWS::ApplicationAutoScaling::ScalingPolicy` resources so the ECS service scales on CPU utilization, memory utilization, or (via custom metric) request count. Parameterize min/max task count (e.g. min 2, max 20) so the embedding service can handle concurrent pipeline and search traffic without over-provisioning.
+- **Task size and defaults.** For high throughput, allow larger task sizes (e.g. 4096 CPU, 8192 MB memory) via parameters; document recommended values for “millions of products” so operators don’t rely on the current 2 vCPU / 4 GB default under load.
+- **ALB and target group tuning.** Increase ALB idle timeout if clients use long-running batch requests; tune target group `deregistration_delay` and health check intervals for faster scaling-in without dropping in-flight requests.
+- **Full-stack option.** The template does not define RDS, the search API, or the data pipeline. For a single-stack “production at scale” story, add optional modules or nested stacks for: (1) RDS (or Aurora) with parameter groups for connection limits and (2) RDS Proxy for connection pooling; (3) ECS service(s) for the Spring Boot search API with its own scaling policies; (4) optional queue (e.g. SQS) and Lambda or ECS tasks for the ingestion pipeline. Alternatively, keep embedding-only and document that RDS and search API are deployed separately.
+- **Secrets and config.** Move sensitive or environment-specific config (e.g. model name, feature flags) to AWS Secrets Manager or SSM Parameter Store and reference them in the task definition instead of plain `Environment` values where appropriate.
+- **Observability.** Template already enables Container Insights. For scale, add optional dashboard (e.g. `AWS::CloudWatch::Dashboard`) and alarms (e.g. `AWS::CloudWatch::Alarm`) for high CPU/memory, error rate, or target response time so operators can react to load.
+
+### Summary Table
+
+| Area              | Current scale assumption | Changes for millions of products                    |
+|-------------------|--------------------------|------------------------------------------------------|
+| Data pipeline     | Single process, per-row  | Batch embed + batch commit; parallel workers; DLQ    |
+| Embedding service | Single task, few workers | Multiple replicas; batch-heavy; optional GPU cluster |
+| Database          | Single Postgres, IVFFlat | HNSW or tuned IVFFlat; pooling; read replicas        |
+| Search API        | No pagination, no cache  | Pagination; query/embedding cache; rate limits       |
+| **IaC (CloudFormation)** | Fixed task count, embedding-only | Auto Scaling; larger task sizes; optional RDS/search API/queue; secrets; alarms/dashboards |
+
+---
+
 ## Portfolio Positioning Considerations
 
 Given that this project is likely part of your job search portfolio, a few observations on how it reads to a technical reviewer:
