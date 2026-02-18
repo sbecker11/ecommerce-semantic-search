@@ -50,6 +50,9 @@ target/
 *.swo
 *~
 
+# macOS
+.DS_Store
+
 # Data files
 *.csv
 *.json
