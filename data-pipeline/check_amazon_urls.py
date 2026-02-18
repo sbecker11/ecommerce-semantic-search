@@ -5,7 +5,6 @@ Run from repo root with: python data-pipeline/check_amazon_urls.py
 Or from data-pipeline with: python check_amazon_urls.py
 """
 import os
-import sys
 import requests
 from dotenv import load_dotenv
 
@@ -24,6 +23,7 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 }
 
+
 def get_urls():
     import psycopg2
     conn = psycopg2.connect(
@@ -36,12 +36,14 @@ def get_urls():
     conn.close()
     return rows
 
+
 def check_url(url, timeout=10):
     try:
         r = requests.head(url, headers=HEADERS, timeout=timeout, allow_redirects=True)
         return r.status_code
     except requests.RequestException as e:
         return str(e)
+
 
 def main():
     rows = get_urls()
@@ -58,13 +60,10 @@ def main():
         status = check_url(url)
         if status == 200:
             ok += 1
-            label = "OK"
         elif status == 404:
             not_found += 1
-            label = "404"
         else:
             other += 1
-            label = status
         title_short = (title or "")[:50] + ("..." if (title and len(title) > 50) else "")
         print(f"  {status if isinstance(status, int) else 'ERR':>6}  {url}")
         print(f"         {product_id}  {title_short}\n")
@@ -73,6 +72,7 @@ def main():
     print(f"  200 OK: {ok}")
     print(f"  404 Not Found: {not_found}")
     print(f"  Other/Error: {other}")
+
 
 if __name__ == "__main__":
     main()

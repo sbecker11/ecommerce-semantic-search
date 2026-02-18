@@ -57,7 +57,7 @@ def create_searchable_text(row: Dict) -> str:
 def load_amazon_data(file_path: str) -> pd.DataFrame:
     """Load Amazon products dataset"""
     print(f"Loading data from {file_path}...")
-    
+
     # Handle different file formats
     if file_path.endswith('.json'):
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -72,7 +72,7 @@ def load_amazon_data(file_path: str) -> pd.DataFrame:
         df = pd.read_csv(file_path)
     else:
         raise ValueError(f"Unsupported file format: {file_path}")
-    
+
     print(f"Loaded {len(df)} products")
     return df
 
@@ -89,7 +89,7 @@ def insert_product(conn, product: Dict, embedding: List[float]):
         if not amazon_url and product.get('product_id'):
             product_id = product.get('product_id') or product.get('asin') or product.get('id')
             amazon_url = f"https://www.amazon.com/dp/{product_id}"
-        
+
         cursor.execute("""
             INSERT INTO products (
                 product_id, title, description, category, brand,
@@ -140,7 +140,7 @@ def process_batch(conn, batch: List[Dict], service_url: str):
         searchable_text = create_searchable_text(product)
         if not searchable_text.strip():
             continue
-        
+
         embedding = get_embedding(searchable_text, service_url)
         if embedding:
             insert_product(conn, product, embedding)
@@ -150,16 +150,16 @@ def main():
     """Main ingestion pipeline"""
     # Get data file path from environment or use default
     data_file = os.getenv('DATA_FILE', 'data/amazon_products.json')
-    
+
     if not os.path.exists(data_file):
         print(f"Data file not found: {data_file}")
         print("Please download Amazon products dataset and place it in the data/ directory")
         print("Example: wget https://example.com/amazon_products.json -O data/amazon_products.json")
         return
-    
+
     # Load data
     df = load_amazon_data(data_file)
-    
+
     # Connect to database
     print(f"Connecting to database {DB_NAME} at {DB_HOST}:{DB_PORT}...")
     conn = psycopg2.connect(
@@ -169,15 +169,15 @@ def main():
         user=DB_USER,
         password=DB_PASSWORD
     )
-    
+
     # Process products in batches
     print(f"Processing {len(df)} products in batches of {BATCH_SIZE}...")
     products = df.to_dict('records')
-    
+
     for i in tqdm(range(0, len(products), BATCH_SIZE), desc="Processing batches"):
         batch = products[i:i + BATCH_SIZE]
         process_batch(conn, batch, EMBEDDING_SERVICE_URL)
-    
+
     conn.close()
     print("Data ingestion complete!")
 
