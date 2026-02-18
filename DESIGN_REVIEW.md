@@ -205,6 +205,51 @@ The current template (`infrastructure/cloudformation/ecs-embedding-service.yaml`
 
 ---
 
+## Worldwide Distribution (Multi-Region and Edge)
+
+To distribute search worldwide — low latency for users in multiple continents and fast delivery of product images and other content — the architecture would need to move from a single region to **multi-region backends** plus **distributed content delivery**. Below is an outline of the changes.
+
+### Multi-Region Search Backend
+
+- **Deploy per region.** Run the search API, embedding service, and database (read path) in each target region (e.g. `us-east-1`, `eu-west-1`, `ap-northeast-1`). Each region serves queries locally so that embedding and vector search incur no cross-region latency.
+- **Traffic routing.** Use **Route 53** (or equivalent) with **latency-based routing** so users are directed to the nearest region. Alternatively use **geo-based routing** if you want to pin regions by country. Health checks should target a regional endpoint (e.g. search API `/health`) so unhealthy regions are removed from the pool.
+- **Database replication.** Replicate product catalog and vectors to every region so each region can serve search without calling another region. Options:
+  - **Aurora Global Database:** one primary (e.g. for writes and ingestion), multiple read-only secondaries in other regions with typical replication lag of under 1 second.
+  - **Cross-region read replicas** (RDS or Aurora): same idea; application in each region reads from the local replica.
+  - **Periodic sync:** export/import or ETL from a central catalog into regional databases (simpler but eventually consistent; more lag).
+- **Vector index per region.** Each region has its own pgvector (or vector store) instance and builds its own HNSW/IVFFlat index from the replicated data. There is no “global” vector index; each region is self-contained for search.
+- **Embedding service per region.** The embedding model is stateless; deploy the same ECS task (same image) in each region. No cross-region calls for query embedding.
+
+### Distributed Content (Images and Static Assets)
+
+- **Store once, serve globally.** Put product images (and other static or large binary content) in **S3** in one primary region (or use S3 Multi-Region Access Points if you need multi-region write). Do not duplicate the same image in every region for storage; use a CDN to distribute it.
+- **CDN for delivery.** Use **CloudFront** (or another CDN) in front of S3. CloudFront edge locations worldwide cache images and serve them from the nearest edge. Product image URLs returned by the search API should point to CloudFront (e.g. `https://d1234abcd.cloudfront.net/product-images/xyz.jpg`) or to an API that redirects to signed CloudFront URLs, not directly to S3 in a single region.
+- **Optional: multi-origin and failover.** CloudFront can have multiple origins (e.g. S3 in two regions) with failover or weighted routing if you need resilience or regional uploads.
+- **API responses.** Keep search API responses small: return product metadata and **image URLs** (CDN URLs), not image bytes. The client (or a separate asset service) resolves those URLs via the CDN.
+
+### Writes, Ingestion, and Consistency
+
+- **Single write region (typical).** Catalog and embedding ingestion run in one “primary” region (or a single primary Aurora cluster). Replication propagates new/updated products and vectors to other regions. Search in every region is eventually consistent (seconds of lag is usually acceptable for product search).
+- **Pipeline.** The data pipeline can stay in the primary region and write to the primary DB; replication handles the rest. If you use Aurora Global Database, add the pipeline to the primary region and optionally run a small “re-index” or validation job in secondary regions if needed.
+
+### IaC and Operations
+
+- **Parameterized stacks per region.** Use the same CloudFormation (or Terraform) template for each region with a parameter (e.g. `AWSRegion`, `EnvironmentName`). Deploy once per region (e.g. via **CloudFormation StackSets** or CI/CD that targets multiple regions). Each stack creates regional ECS cluster, ALB, ECR copy of the image (or cross-region pull), and optionally RDS replica or Aurora secondary.
+- **ECR.** Replicate the embedding (and search API) Docker image to each region’s ECR so pulls are local, or use a single region and accept cross-region pull latency for deployments.
+- **Secrets and config.** Use **Secrets Manager** (with cross-region replication if you want the same secret in every region) or **SSM Parameter Store** and reference them in the task definition so each region gets the right DB endpoint and config.
+
+### Summary: What Changes for Worldwide Distribution
+
+| Concern | Single-region (current) | Worldwide distribution |
+|--------|--------------------------|-------------------------|
+| Search API / Embedding | One region | Deploy in N regions; Route 53 latency/geo routing |
+| Database | One Postgres | Aurora Global DB or cross-region read replicas; index per region |
+| Product images / static content | Not in scope or single S3 | S3 + CloudFront (CDN); API returns CDN URLs |
+| Writes / ingestion | Local | Primary region only; replication to secondaries |
+| IaC | One stack | Same template, parameterized; StackSets or multi-region CI/CD |
+
+---
+
 ## Portfolio Positioning Considerations
 
 Given that this project is likely part of your job search portfolio, a few observations on how it reads to a technical reviewer:
