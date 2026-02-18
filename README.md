@@ -113,8 +113,26 @@ The **embedding service** is ECS Fargate ready: it runs in a container and can b
 
 - **Task definition** — `infrastructure/ecs-task-definition.json` (Fargate, 2 vCPU / 4 GB, health check, CloudWatch logs)
 - **Deploy script** — `infrastructure/deploy.sh` builds the image, pushes to ECR, and updates the ECS service
+- **CloudFormation template** — `infrastructure/cloudformation/ecs-embedding-service.yaml` defines the full stack (ECS cluster, service, ALB, security groups, IAM roles, CloudWatch logs)
 
 **Deploy the embedding service:**
+
+**Option 1: CloudFormation (recommended for production)**
+
+Deploys the complete infrastructure stack:
+
+```bash
+cd infrastructure/cloudformation
+# See README.md for full instructions
+aws cloudformation create-stack \
+  --stack-name ecommerce-embedding-service \
+  --template-body file://ecs-embedding-service.yaml \
+  --parameters ParameterKey=ECRImageURI,ParameterValue=<your-ecr-uri> ...
+```
+
+See [infrastructure/cloudformation/README.md](infrastructure/cloudformation/README.md) for details.
+
+**Option 2: Manual deployment**
 
 1. Create an ECS cluster and service (see [infrastructure/README.md](infrastructure/README.md)).
 2. From `infrastructure/`, run:
