@@ -39,7 +39,6 @@ build/
 
 # Java
 target/
-.mvn/
 .mvn/wrapper/maven-wrapper.jar
 
 # IDE
