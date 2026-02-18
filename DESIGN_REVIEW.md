@@ -9,7 +9,7 @@ Design and implement a Semantic Search capability for an e-commerce application.
 **Data Engineering Pipeline**
 
 - Refer to this open source dataset of Amazon products. Ingest the data to a database of your choice, which should have the vector search capability.
-- Choose an LLM model of your choice from https://huggingface.co/ and deploy its inference endpoint as a service, preferably in an ECS Fargate cluster.
+- Choose an LLM (Large Language Model) model of your choice from https://huggingface.co/ and deploy its inference endpoint as a service, preferably in an ECS (Elastic Container Service) Fargate cluster.
 - The ingested data should have vector fields which could be generated on certain fields of your choice; they should be relevant to the searchable fields.
 
 **Search Engine**
@@ -25,15 +25,15 @@ Design and implement a Semantic Search capability for an e-commerce application.
 
 Looking at what was implemented against the original problem statement, the project did quite well on the core requirements and addressed the bonus. Here is a breakdown by section.
 
-**Data Engineering Pipeline.** The Amazon products dataset requirement was met — the ingestion pipeline handles multiple field conventions (ASIN, product_id, etc.) and supports both JSON lines and CSV formats, suggesting it was built specifically around Amazon product data. The choice of pgvector over a standalone vector DB like Pinecone is a reasonable deviation; it satisfies the "vector search capability" requirement with less operational overhead, though a strict reader might note the problem implied a separate vector service. The HuggingFace model requirement was satisfied with `all-MiniLM-L6-v2`, and deploying it as a separate embedding service with ECS Fargate task definitions directly addresses the "deploy its inference endpoint as a service" requirement. Vector fields on relevant product fields (title, description) were implemented as specified.
+**Data Engineering Pipeline.** The Amazon products dataset requirement was met — the ingestion pipeline handles multiple field conventions (ASIN (Amazon Standard Identification Number), product_id, etc.) and supports both JSON lines and CSV formats, suggesting it was built specifically around Amazon product data. The choice of pgvector over a standalone vector DB (Database) like Pinecone is a reasonable deviation; it satisfies the "vector search capability" requirement with less operational overhead, though a strict reader might note the problem implied a separate vector service. The HuggingFace model requirement was satisfied with `all-MiniLM-L6-v2`, and deploying it as a separate embedding service with ECS Fargate task definitions directly addresses the "deploy its inference endpoint as a service" requirement. Vector fields on relevant product fields (title, description) were implemented as specified.
 
 **Search Engine.** This is where the project hits every requirement precisely. Spring Boot POST API — check. Vector search against the ingested table — check. Results sorted by cosine similarity relevance — check. Note that the Java Spring Boot constraint was explicitly required by the problem statement, which makes any architectural critique of the polyglot stack somewhat unfair — that decision was not the developer's to make.
 
-**Bonus (Fine-tuning).** The `evaluation/` directory with fine-tuning scripts and NDCG/MRR/Precision@Recall metrics shows the intent was there. However, there is no evidence the fine-tuning was actually run, and no before/after metrics are documented anywhere. The bonus was attempted but not demonstrated — a missed opportunity to fully claim credit.
+**Bonus (Fine-tuning).** The `evaluation/` directory with fine-tuning scripts and NDCG (Normalized Discounted Cumulative Gain)/MRR (Mean Reciprocal Rank)/Precision@Recall metrics shows the intent was there. However, there is no evidence the fine-tuning was actually run, and no before/after metrics are documented anywhere. The bonus was attempted but not demonstrated — a missed opportunity to fully claim credit.
 
-**What exceeded the requirements.** The project went further than asked in several areas: GIN indexes for full-text search, IVFFlat index configuration, multi-stage Docker builds, CI/CD via GitHub Actions, health check endpoints, and operational scripts for backup/restore. These all signal production thinking that goes well beyond the assignment scope.
+**What exceeded the requirements.** The project went further than asked in several areas: GIN (Generalized Inverted Index) indexes for full-text search, IVFFlat (Inverted File with Flat compression) index configuration, multi-stage Docker builds, CI/CD (Continuous Integration/Continuous Deployment) via GitHub Actions, health check endpoints, and operational scripts for backup/restore. These all signal production thinking that goes well beyond the assignment scope.
 
-**Extra credit: CloudFormation Infrastructure as Code.** The project includes a complete CloudFormation template (`infrastructure/cloudformation/ecs-embedding-service.yaml`) that defines the entire ECS Fargate deployment stack — ECS cluster, service, Application Load Balancer, security groups, IAM roles, CloudWatch logs, and ECR repository. This is a significant operational improvement over manual deployment scripts because it provides: (1) **reproducibility** — the same template can deploy identical infrastructure across dev/staging/prod environments; (2) **version control** — infrastructure changes are tracked in git alongside code changes; (3) **complete stack definition** — all AWS resources (not just the task definition) are defined declaratively, reducing configuration drift and manual setup errors; (4) **team collaboration** — infrastructure changes can be reviewed via pull requests before deployment. For a production system, Infrastructure as Code (IaC) is considered a best practice and demonstrates advanced DevOps maturity beyond basic containerization.
+**Extra credit: CloudFormation Infrastructure as Code.** The CloudFormation template is for **production (or staging) deployment on AWS only**; local development uses Docker Compose and does not use CloudFormation. The project includes a complete CloudFormation template (`infrastructure/cloudformation/ecs-embedding-service.yaml`) that defines the entire ECS (Elastic Container Service) Fargate deployment stack — ECS cluster, service, Application Load Balancer (ALB), security groups, IAM (Identity and Access Management) roles, CloudWatch logs, and ECR (Elastic Container Registry) repository. This is a significant operational improvement over manual deployment scripts because it provides: (1) **reproducibility** — the same template can deploy identical infrastructure across dev/staging/prod environments; (2) **version control** — infrastructure changes are tracked in git alongside code changes; (3) **complete stack definition** — all AWS (Amazon Web Services) resources (not just the task definition) are defined declaratively, reducing configuration drift and manual setup errors; (4) **team collaboration** — infrastructure changes can be reviewed via pull requests before deployment. For a production system, Infrastructure as Code (IaC) is considered a best practice and demonstrates advanced DevOps (Development Operations) maturity beyond basic containerization.
 
 **Summary.** The core assignment was implemented thoroughly and faithfully. The primary gaps relative to the problem statement are the unrun fine-tuning experiment (the bonus credit is incomplete) and the absence of a working demo with real data showing the search performing well. For a job application context, those two things are the difference between "I built this" and "I built this and it works."
 
@@ -59,7 +59,7 @@ This project implements an end-to-end semantic search system for e-commerce prod
 
 **1. The polyglot stack (Java + Python) adds complexity without a clear payoff.**
 
-Note: Java Spring Boot was mandated by the original problem statement, so this is a constraint rather than a design choice. That said, the Spring Boot API as implemented is a thin proxy — it receives a query, calls the embedding service over HTTP, runs a native SQL query, and returns results. Any reviewer needs to evaluate two ecosystems. If the README called out that Java was a hard requirement, it would preempt this concern entirely.
+Note: Java Spring Boot was mandated by the original problem statement, so this is a constraint rather than a design choice. That said, the Spring Boot API (Application Programming Interface) as implemented is a thin proxy — it receives a query, calls the embedding service over HTTP (Hypertext Transfer Protocol), runs a native SQL (Structured Query Language) query, and returns results. Any reviewer needs to evaluate two ecosystems. If the README called out that Java was a hard requirement, it would preempt this concern entirely.
 
 **2. The embedding service is a synchronous bottleneck at query time.**
 
@@ -67,7 +67,7 @@ Every search request makes a blocking HTTP call from the search API to the embed
 
 Recommendations:
 
-- For the search API, consider embedding the model directly (using ONNX Runtime in Java) to eliminate the network hop at query time. The model is only 80MB.
+- For the search API, consider embedding the model directly (using ONNX (Open Neural Network Exchange) Runtime in Java) to eliminate the network hop at query time. The model is only 80MB.
 - If the service boundary is important (e.g., for shared use by both ingestion and search), add retry logic and a circuit breaker. The current `EmbeddingService.java` wraps failures in a bare `RuntimeException` with no retry.
 - The embedding service uses only 2 Gunicorn workers. Under concurrent load, this will queue requests. Consider increasing workers or adding async inference.
 
@@ -77,7 +77,7 @@ The index is configured with `lists = 100`, which is appropriate for roughly 10K
 
 Recommendations:
 
-- Create the IVFFlat index *after* initial data load, or switch to HNSW (`vector_ip_ops` or `vector_cosine_ops`), which doesn't require training and works well at all scales. pgvector supports HNSW as of v0.5.0.
+- Create the IVFFlat index *after* initial data load, or switch to HNSW (Hierarchical Navigable Small World) (`vector_ip_ops` or `vector_cosine_ops`), which doesn't require training and works well at all scales. pgvector supports HNSW as of v0.5.0.
 - Document the expected data scale and index tuning rationale.
 
 **4. No hybrid search (vector + keyword).**
@@ -108,7 +108,7 @@ This is a missed opportunity, especially since the infrastructure is already in 
 **Issues:**
 
 - **No input length validation.** Sentence transformers have a max token limit (256 for MiniLM). Long product descriptions will be silently truncated, potentially losing important information. The service should warn or truncate intelligently (e.g., prioritize title over description).
-- **No request size limits.** The batch endpoint accepts unbounded lists. A single large batch request could OOM the service.
+- **No request size limits.** The batch endpoint accepts unbounded lists. A single large batch request could OOM (Out Of Memory) the service.
 - **Model loaded at module level.** If model loading fails, the Flask app fails to start with an unhandled exception. The `try/except` at lines 23–28 catches and re-raises, but Gunicorn workers will crash-loop.
 
 ### Search API (Spring Boot)
@@ -117,8 +117,8 @@ This is a missed opportunity, especially since the infrastructure is already in 
 
 **Issues:**
 
-- **Manual ORM mapping.** `SearchService.extractProduct()` is a 30+ line method that manually casts `Object[]` indices to Product fields by position. This is brittle — any schema change breaks it silently. Using a JPA `@SqlResultSetMapping` or Spring's `JdbcTemplate.query(RowMapper)` would be safer.
-- **Reflection for PGobject.** Lines 73–80 use reflection to call `getValue()` on PGobject to avoid importing the Postgres driver class. This is clever but unnecessary — the Postgres JDBC driver is already a compile dependency. A direct cast would be cleaner.
+- **Manual ORM (Object-Relational Mapping) mapping.** `SearchService.extractProduct()` is a 30+ line method that manually casts `Object[]` indices to Product fields by position. This is brittle — any schema change breaks it silently. Using a JPA (Java Persistence API) `@SqlResultSetMapping` or Spring's `JdbcTemplate.query(RowMapper)` would be safer.
+- **Reflection for PGobject.** Lines 73–80 use reflection to call `getValue()` on PGobject (PostgreSQL JDBC driver class for custom types such as vector) to avoid importing the Postgres driver class. This is clever but unnecessary — the Postgres JDBC (Java Database Connectivity) driver is already a compile dependency. A direct cast would be cleaner.
 - **`@CrossOrigin(origins = "*")`** is fine for development but should be flagged as something to lock down for production.
 - **No pagination.** The API returns up to 100 results but has no offset/cursor support. For production use, this limits client flexibility.
 
@@ -141,7 +141,7 @@ This is a missed opportunity, especially since the infrastructure is already in 
 - Shell scripts for start/stop/status/backup/restore
 - Health check endpoints on all services
 - Docker Compose for local development
-- **CloudFormation IaC template** for complete ECS Fargate deployment (cluster, service, ALB, security groups, IAM roles) — enables reproducible, version-controlled infrastructure deployments
+- **CloudFormation IaC template** for complete ECS Fargate deployment (cluster, service, ALB, security groups, IAM roles) — enables reproducible, version-controlled infrastructure deployments (production/staging on AWS; development uses Docker Compose locally)
 
 ### Gaps
 
@@ -156,13 +156,13 @@ This is a missed opportunity, especially since the infrastructure is already in 
 
 Given that this project is likely part of your job search portfolio, a few observations on how it reads to a technical reviewer:
 
-**Strengths for your narrative:** This project directly demonstrates vector embeddings, similarity search, data pipeline engineering, and microservice architecture — all highly relevant for AI/ML engineering roles. The evaluation module with NDCG/MRR/Precision@Recall metrics shows you understand information retrieval theory, not just implementation.
+**Strengths for your narrative:** This project directly demonstrates vector embeddings, similarity search, data pipeline engineering, and microservice architecture — all highly relevant for AI/ML (Artificial Intelligence/Machine Learning) engineering roles. The evaluation module with NDCG/MRR/Precision@Recall metrics shows you understand information retrieval theory, not just implementation.
 
 **Areas to strengthen:**
 
 - **Add a working demo.** Seed the database with real (or realistic) data and include a screenshot or GIF of a search query returning ranked results. Reviewers who can't run the project should still see it working.
 - **Highlight the fine-tuning story.** The `evaluation/` directory has scripts for fine-tuning and comparison, but there's no evidence they've been run. Adding a `RESULTS.md` showing before/after metrics from an actual fine-tuning experiment would be very compelling.
-- **Connect to your patent work.** Your patents are on NLP-based recommendation systems using vector embeddings and cosine similarity — this project is a direct implementation of those concepts. A brief note in the README connecting the two would add credibility.
+- **Connect to your patent work.** Your patents are on NLP (Natural Language Processing)-based recommendation systems using vector embeddings and cosine similarity — this project is a direct implementation of those concepts. A brief note in the README connecting the two would add credibility.
 
 ---
 
@@ -170,7 +170,7 @@ Given that this project is likely part of your job search portfolio, a few obser
 
 **GIN Index (Generalized Inverted Index).** A PostgreSQL index type designed for columns whose values contain multiple searchable elements, such as text documents containing many words. Rather than mapping each row to a single value (as a B-tree index does), a GIN index inverts the relationship — mapping each token (word) to all rows that contain it. This makes full-text queries like "find products whose description contains 'running shoes'" dramatically faster on large datasets, since PostgreSQL can look up matching tokens instantly rather than scanning every row. In PostgreSQL's full-text search system, text is first converted into a `tsvector` (a normalized token list) and GIN indexes are the standard way to index those columns.
 
-**IVFFlat Index (Inverted File with Flat compression).** An approximate nearest neighbor (ANN) indexing algorithm used by pgvector to accelerate vector similarity searches. Without an index, finding the most similar vector to a query requires comparing against every vector in the table — a brute-force scan that doesn't scale. IVFFlat solves this by running k-means clustering on all vectors at index-build time, grouping them into `lists` number of clusters. At query time, it finds the nearest cluster(s) first, then searches only within those, dramatically reducing comparisons. The tradeoff is that it's *approximate* — results are very accurate but not guaranteed to be perfect. A key requirement is that the index must be built on a populated table, since k-means needs real vectors to cluster; building it on an empty table produces a degenerate, useless index.
+**IVFFlat Index (Inverted File with Flat compression).** An approximate nearest neighbor (ANN (Approximate Nearest Neighbor)) indexing algorithm used by pgvector to accelerate vector similarity searches. Without an index, finding the most similar vector to a query requires comparing against every vector in the table — a brute-force scan that doesn't scale. IVFFlat solves this by running k-means clustering on all vectors at index-build time, grouping them into `lists` number of clusters. At query time, it finds the nearest cluster(s) first, then searches only within those, dramatically reducing comparisons. The tradeoff is that it's *approximate* — results are very accurate but not guaranteed to be perfect. A key requirement is that the index must be built on a populated table, since k-means needs real vectors to cluster; building it on an empty table produces a degenerate, useless index.
 
 **HNSW (Hierarchical Navigable Small World).** A graph-based ANN indexing algorithm and the modern alternative to IVFFlat in pgvector (available since v0.5.0). Rather than clustering vectors into buckets, HNSW builds a layered graph where each vector is connected to its nearest neighbors at multiple levels of granularity. At query time it navigates this graph greedily, converging on the nearest neighbors quickly. Key advantages over IVFFlat: it requires no training step so it works correctly when built on an empty or partially populated table; it generally delivers better recall and query performance; and it doesn't require tuning a `probes` parameter at query time. The tradeoffs are higher memory usage and longer index build times.
 

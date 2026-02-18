@@ -2,6 +2,8 @@
 
 CloudFormation templates for deploying the embedding service to ECS Fargate on AWS.
 
+**Production deployment only.** These templates are for production (or staging) deployment on AWS. For local development, use Docker Compose; CloudFormation is not required.
+
 ## Prerequisites
 
 - AWS CLI configured with appropriate credentials
