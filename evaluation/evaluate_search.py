@@ -2,40 +2,6 @@
 """
 Evaluation script for semantic search relevancy
 Calculates metrics: NDCG, MRR, Precision@K, Recall@K
-
-see https://weaviate.io/blog/retrieval-evaluation-metrics#normalized-discounted-cumulative-gain-ndcg
-
-NDCG:
-The Normalized Discounted Cumulative Gain@K (NDCG@K) 
-metric measures the system's ability to sort items 
-based on relevance. In contrast to the other metrics, 
-this metric requires not only if a document is relevant
-but also how relevant it is (e.g., relevant vs. somewhat 
-relevant vs. not relevant).
-
-MRR:
-The Mean Reciprocal Rank@K (MRR@K) metric measures how 
-well the system finds a relevant result as the top result.
-This metric only considers the order of the first relevant 
-results but not the number or order of the other relevant 
-results. 
-
-MAP@K
-Mean Average Precision (MAP)
-The Mean Average Precision@K (MAP@K) metric measures the 
-system's ability to return relevant items in the top K 
-results while placing more relevant items at the top. 
-
-https://www.evidentlyai.com/ranking-metrics/precision-recall-at-k
-
-Precision@K
-Precision at K measures how many items with the top K positions 
-are relevant.
-
-Recall@K
-Recall at K measures how many relevant items are found in the 
-top K positions.
-
 """
 
 import json
