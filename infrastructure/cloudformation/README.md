@@ -144,3 +144,4 @@ export EMBEDDING_SERVICE_URL=$(aws cloudformation describe-stacks \
   --output text \
   --region ${REGION})
 ```
+
