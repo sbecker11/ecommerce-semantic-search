@@ -10,6 +10,20 @@ Complete setup instructions for the E-commerce Semantic Search system.
 - Maven 3.6+ (or use Maven wrapper)
 - PostgreSQL 14+ with pgvector extension (or use Docker)
 
+### Data Pipeline: psycopg2 on macOS
+
+If `pip install -r requirements.txt` fails when building psycopg2-binary, install libpq first:
+
+```bash
+brew install libpq
+export LDFLAGS="-L$(brew --prefix libpq)/lib"
+export CPPFLAGS="-I$(brew --prefix libpq)/include"
+export PATH="$(brew --prefix libpq)/bin:$PATH"
+pip install -r requirements.txt
+```
+
+Run the exports in the same terminal session before `pip install`. Add them to `~/.zshrc` to persist.
+
 ## JDK Version Management
 
 This project requires Java 17+. If you need to manage multiple JDK versions, we recommend using **jenv** (available via Homebrew).
@@ -152,9 +166,15 @@ Example data format (JSON):
 
 ## Step 4: Run Data Pipeline
 
-Install Python dependencies and run the ingestion pipeline:
+Install PostgreSQL client libraries (required for psycopg2 on macOS), then Python dependencies:
 
 ```bash
+# macOS: install libpq for psycopg2
+brew install libpq
+export LDFLAGS="-L$(brew --prefix libpq)/lib"
+export CPPFLAGS="-I$(brew --prefix libpq)/include"
+export PATH="$(brew --prefix libpq)/bin:$PATH"
+
 cd data-pipeline
 pip install -r requirements.txt
 

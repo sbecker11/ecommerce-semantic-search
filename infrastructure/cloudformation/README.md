@@ -7,99 +7,64 @@ CloudFormation templates for deploying the embedding service to ECS Fargate on A
 ## Prerequisites
 
 - AWS CLI configured with appropriate credentials
-- AWS account with permissions to create ECS, VPC, IAM, ALB resources
+- AWS account with permissions to create ECS, VPC, IAM, ALB, ECR resources
 - VPC and subnets (or use default VPC)
-- Docker image built and pushed to ECR (or use the ECR repository created by this template)
+- Docker installed
 
 ## Quick Start
 
-### 1. Build and Push Docker Image
+From the project root, run:
 
 ```bash
-cd ../embedding-service
-docker build -t embedding-service:latest .
-
-# Get AWS account ID and region
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-REGION=${AWS_REGION:-us-east-1}
-
-# Login to ECR
-aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
-
-# Create ECR repository (or use the one created by CloudFormation)
-aws ecr create-repository --repository-name embedding-service --region ${REGION} || true
-
-# Tag and push
-ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/embedding-service:latest"
-docker tag embedding-service:latest ${ECR_URI}
-docker push ${ECR_URI}
+./infrastructure/cloudformation/deploy.sh
 ```
 
-### 2. Get VPC and Subnet IDs
+Optionally pass `--cleanup` to remove any existing stack and ECR first:
 
 ```bash
-# Option 1: Use default VPC
-VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query 'Vpcs[0].VpcId' --output text)
-SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')
-
-# Option 2: Use specific VPC
-# VPC_ID=vpc-xxxxx
-# SUBNET_IDS=subnet-xxxxx,subnet-yyyyy
+./infrastructure/cloudformation/deploy.sh --cleanup
 ```
 
-### 3. Deploy CloudFormation Stack
+The script uses `AWS_REGION` if set (default `us-west-1`), auto-detects VPC and subnets, creates the stack with `DesiredCount=0`, waits for creation, builds and pushes the image, scales to 2 tasks, and prints the embedding service URL. No user input required.
+
+## Manual deployment
+
+If you prefer to run commands yourself:
+
+1. **Cleanup (optional)** – Delete stack and ECR if starting over
+2. **Variables** – `ACCOUNT_ID`, `VPC_ID`, `SUBNET_IDS`, `ECR_URI` from AWS CLI
+3. **Deploy stack** – `DesiredCount=0` to avoid circuit breaker before image push
+4. **Wait** – `aws cloudformation wait stack-create-complete` (use progress monitor from `deploy.sh`)
+5. **Build & push** – Docker build, tag, push to ECR
+6. **Scale up** – `aws ecs update-service --desired-count 2 --force-new-deployment`
+
+See `deploy.sh` for the exact commands.
+
+## Troubleshooting
+
+**"ECR repository already exists"** – Run `deploy.sh --cleanup`, or delete the stack and ECR manually, then retry.
+
+**"Invalid type for parameter SubnetIds"** – Use the JSON parameters file (`file:///tmp/cfn-params.json`), not inline `--parameters`.
+
+**Stack in ROLLBACK_COMPLETE** – Inspect events, fix the cause, delete the stack, then redeploy:
 
 ```bash
-cd cloudformation
-
-# Set parameters
-STACK_NAME=ecommerce-embedding-service
-ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/embedding-service:latest"
-
-aws cloudformation create-stack \
-  --stack-name ${STACK_NAME} \
-  --template-body file://ecs-embedding-service.yaml \
-  --parameters \
-    ParameterKey=ECRImageURI,ParameterValue=${ECR_URI} \
-    ParameterKey=VpcId,ParameterValue=${VPC_ID} \
-    ParameterKey=SubnetIds,ParameterValue=${SUBNET_IDS} \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region ${REGION}
+aws cloudformation describe-stack-events --stack-name ${STACK_NAME} --region ${REGION} \
+  --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' --output table
+aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${REGION}
 ```
-
-### 4. Wait for Stack Creation
-
-```bash
-aws cloudformation wait stack-create-complete --stack-name ${STACK_NAME} --region ${REGION}
-```
-
-### 5. Get Outputs
-
-```bash
-aws cloudformation describe-stacks \
-  --stack-name ${STACK_NAME} \
-  --query 'Stacks[0].Outputs' \
-  --region ${REGION} \
-  --output table
-```
-
-The `LoadBalancerURL` output gives you the URL to access the embedding service (e.g., `http://embedding-service-alb-xxx.us-east-1.elb.amazonaws.com`).
 
 ## Updating the Stack
 
 ### Update Image
 
-After pushing a new image to ECR:
+After pushing a new image to ECR, force a new deployment:
 
 ```bash
-aws cloudformation update-stack \
-  --stack-name ${STACK_NAME} \
-  --template-body file://ecs-embedding-service.yaml \
-  --parameters \
-    ParameterKey=ECRImageURI,ParameterValue=${NEW_ECR_URI} \
-    ParameterKey=VpcId,ParameterValue=${VPC_ID} \
-    ParameterKey=SubnetIds,ParameterValue=${SUBNET_IDS} \
-  --capabilities CAPABILITY_NAMED_IAM \
+aws ecs update-service \
+  --cluster ecommerce-cluster \
+  --service embedding-service \
+  --force-new-deployment \
   --region ${REGION}
 ```
 
@@ -108,16 +73,23 @@ aws cloudformation update-stack \
 To change desired count, CPU, memory, etc.:
 
 ```bash
+# Regenerate params (ensure VPC_ID, SUBNET_IDS, ECR_URI are set)
+cat > /tmp/cfn-params.json << EOF
+[
+  {"ParameterKey": "ECRImageURI", "ParameterValue": "${ECR_URI}"},
+  {"ParameterKey": "VpcId", "ParameterValue": "${VPC_ID}"},
+  {"ParameterKey": "SubnetIds", "ParameterValue": "${SUBNET_IDS}"},
+  {"ParameterKey": "CreateECRRepository", "ParameterValue": "true"},
+  {"ParameterKey": "DesiredCount", "ParameterValue": "4"},
+  {"ParameterKey": "Cpu", "ParameterValue": "4096"},
+  {"ParameterKey": "Memory", "ParameterValue": "8192"}
+]
+EOF
+
 aws cloudformation update-stack \
   --stack-name ${STACK_NAME} \
   --template-body file://ecs-embedding-service.yaml \
-  --parameters \
-    ParameterKey=ECRImageURI,ParameterValue=${ECR_URI} \
-    ParameterKey=VpcId,ParameterValue=${VPC_ID} \
-    ParameterKey=SubnetIds,ParameterValue=${SUBNET_IDS} \
-    ParameterKey=DesiredCount,ParameterValue=4 \
-    ParameterKey=Cpu,ParameterValue=4096 \
-    ParameterKey=Memory,ParameterValue=8192 \
+  --parameters file:///tmp/cfn-params.json \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ${REGION}
 ```
@@ -137,6 +109,7 @@ aws cloudformation update-stack \
 | `AllowedCIDR` | `0.0.0.0/0` | CIDR allowed to access ALB |
 | `ModelName` | `sentence-transformers/all-MiniLM-L6-v2` | HuggingFace model |
 | `LogRetentionDays` | `7` | CloudWatch log retention |
+| `CreateECRRepository` | `true` | Set to true to let CloudFormation create ECR (Quick Start) |
 
 ## Resources Created
 
@@ -148,7 +121,7 @@ aws cloudformation update-stack \
 - **Security Groups** - ALB and ECS task security
 - **IAM Roles** - Task execution and task roles
 - **CloudWatch Log Group** - Application logs
-- **ECR Repository** - Docker image repository (optional)
+- **ECR Repository** - Docker image repository
 
 ## Cleanup
 
@@ -162,7 +135,7 @@ Note: This will delete the ECR repository and all images if it was created by Cl
 
 ## Integration with Search API
 
-After deployment, use the `LoadBalancerURL` output as the `EMBEDDING_SERVICE_URL` environment variable for your Search API:
+After a successful deployment (stack in `CREATE_COMPLETE` or `UPDATE_COMPLETE`), use the `LoadBalancerURL` output as the `EMBEDDING_SERVICE_URL` environment variable for your Search API. Requires `STACK_NAME` and `REGION` to be set (e.g. from Quick Start step 1).
 
 ```bash
 export EMBEDDING_SERVICE_URL=$(aws cloudformation describe-stacks \

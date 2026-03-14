@@ -56,6 +56,15 @@ Parameters:
     Default: 7
     Description: Number of days to retain CloudWatch logs
 
+  CreateECRRepository:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Set to true to let CloudFormation create ECR (default Quick Start flow)
+
+Conditions:
+  CreateECR: !Equals [ !Ref CreateECRRepository, 'true' ]
+
 Resources:
   # CloudWatch Log Group
   LogGroup:
@@ -64,9 +73,10 @@ Resources:
       LogGroupName: !Sub '/ecs/${ServiceName}'
       RetentionInDays: !Ref LogRetentionDays
 
-  # ECR Repository (optional - create if doesn't exist)
+  # ECR Repository (created only when CreateECRRepository=true)
   ECRRepository:
     Type: AWS::ECR::Repository
+    Condition: CreateECR
     Properties:
       RepositoryName: !Ref ServiceName
       ImageScanningConfiguration:
@@ -327,6 +337,7 @@ Outputs:
       Name: !Sub '${AWS::StackName}-TargetGroupArn'
 
   ECRRepositoryURI:
+    Condition: CreateECR
     Description: ECR repository URI
     Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}'
     Export:
