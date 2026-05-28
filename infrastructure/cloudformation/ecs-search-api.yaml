@@ -1,56 +1,90 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'ECS Fargate deployment for embedding service - includes cluster, service, ALB, security groups, IAM roles, and CloudWatch logs'
+Description: 'ECS Fargate deployment for Search API - ALB, security groups, IAM roles, CloudWatch logs. Reuses existing ECS cluster by default.'
 
 Parameters:
   ClusterName:
     Type: String
     Default: ecommerce-cluster
-    Description: Name of the ECS cluster
-  
+    Description: Name of the ECS cluster (must exist if CreateECSCluster is false)
+
+  CreateECSCluster:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Set to true only if the cluster does not exist yet (embedding stack creates ecommerce-cluster)
+
   ServiceName:
     Type: String
-    Default: embedding-service
+    Default: search-api
     Description: Name of the ECS service
-  
+
   ECRImageURI:
     Type: String
-    Description: Full ECR image URI (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/embedding-service:latest)
-  
+    Description: Full ECR image URI (e.g., 123456789012.dkr.ecr.us-west-1.amazonaws.com/search-api:latest)
+
   DesiredCount:
     Type: Number
     Default: 2
     Description: Desired number of tasks running
-  
+
   Cpu:
     Type: String
-    Default: '2048'
+    Default: '1024'
     AllowedValues: ['256', '512', '1024', '2048', '4096']
     Description: CPU units for the task (1024 = 1 vCPU)
-  
+
   Memory:
     Type: String
-    Default: '4096'
+    Default: '2048'
     AllowedValues: ['512', '1024', '2048', '4096', '8192', '16384']
     Description: Memory (MB) for the task
-  
+
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID where resources will be deployed
-  
+
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: List of subnet IDs (at least 2 for ALB, can be same for ECS service)
-  
+    Description: List of subnet IDs (at least 2 for ALB)
+
   AllowedCIDR:
     Type: String
     Default: '0.0.0.0/0'
-    Description: CIDR block allowed to access the ALB (use 0.0.0.0/0 for public, or restrict to your IP)
-  
-  ModelName:
+    Description: CIDR block allowed to access the ALB
+
+  ContainerPort:
+    Type: Number
+    Default: 8081
+    Description: Container port for the Search API
+
+  DBHost:
     Type: String
-    Default: 'sentence-transformers/all-MiniLM-L6-v2'
-    Description: HuggingFace model name for embeddings
-  
+    Description: PostgreSQL host (e.g. RDS endpoint)
+
+  DBPort:
+    Type: String
+    Default: '5432'
+    Description: PostgreSQL port
+
+  DBName:
+    Type: String
+    Default: ecommerce
+    Description: Database name
+
+  DBUser:
+    Type: String
+    Default: postgres
+    Description: Database user
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: Database password
+
+  EmbeddingServiceURL:
+    Type: String
+    Description: Full embedding service URL including path (e.g. http://embedding-alb-xxx.us-west-1.elb.amazonaws.com/embed)
+
   LogRetentionDays:
     Type: Number
     Default: 7
@@ -63,17 +97,16 @@ Parameters:
     Description: Set to true to let CloudFormation create ECR (default Quick Start flow)
 
 Conditions:
-  CreateECR: !Equals [ !Ref CreateECRRepository, 'true' ]
+  CreateECR: !Equals [!Ref CreateECRRepository, 'true']
+  CreateECSCluster: !Equals [!Ref CreateECSCluster, 'true']
 
 Resources:
-  # CloudWatch Log Group
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/ecs/${ServiceName}'
       RetentionInDays: !Ref LogRetentionDays
 
-  # ECR Repository (created only when CreateECRRepository=true)
   ECRRepository:
     Type: AWS::ECR::Repository
     Condition: CreateECR
@@ -100,21 +133,20 @@ Resources:
             ]
           }
 
-  # ECS Cluster
   ECSCluster:
     Type: AWS::ECS::Cluster
+    Condition: CreateECSCluster
     Properties:
       ClusterName: !Ref ClusterName
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
 
-  # Security Group for ALB
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub '${ServiceName}-alb-sg'
-      GroupDescription: Security group for Application Load Balancer
+      GroupDescription: Security group for Search API Application Load Balancer
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -132,17 +164,16 @@ Resources:
         - Key: Name
           Value: !Sub '${ServiceName}-alb-sg'
 
-  # Security Group for ECS Tasks
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: !Sub '${ServiceName}-ecs-sg'
-      GroupDescription: Security group for ECS tasks
+      GroupDescription: Security group for Search API ECS tasks
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
           SourceSecurityGroupId: !Ref ALBSecurityGroup
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -151,7 +182,6 @@ Resources:
         - Key: Name
           Value: !Sub '${ServiceName}-ecs-sg'
 
-  # IAM Role for ECS Task Execution
   TaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -176,7 +206,6 @@ Resources:
                   - logs:PutLogEvents
                 Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/${ServiceName}:*'
 
-  # IAM Role for ECS Task (task role - for app permissions if needed)
   TaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -188,10 +217,7 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
-      # Add policies here if the embedding service needs AWS permissions
-      # For example, to read from S3, Secrets Manager, etc.
 
-  # Application Load Balancer
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -205,16 +231,15 @@ Resources:
         - Key: Name
           Value: !Sub '${ServiceName}-alb'
 
-  # Target Group
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Name: !Sub '${ServiceName}-tg'
-      Port: 8080
+      Port: !Ref ContainerPort
       Protocol: HTTP
       VpcId: !Ref VpcId
       TargetType: ip
-      HealthCheckPath: /health
+      HealthCheckPath: /api/search/health
       HealthCheckProtocol: HTTP
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
@@ -226,7 +251,6 @@ Resources:
         - Key: Name
           Value: !Sub '${ServiceName}-tg'
 
-  # ALB Listener
   ALBListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
@@ -237,7 +261,6 @@ Resources:
       Port: 80
       Protocol: HTTP
 
-  # ECS Task Definition
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -254,29 +277,30 @@ Resources:
           Image: !Ref ECRImageURI
           Essential: true
           PortMappings:
-            - ContainerPort: 8080
+            - ContainerPort: !Ref ContainerPort
               Protocol: tcp
           Environment:
-            - Name: MODEL_NAME
-              Value: !Ref ModelName
-            - Name: PORT
-              Value: '8080'
+            - Name: SERVER_PORT
+              Value: !Sub '${ContainerPort}'
+            - Name: DB_HOST
+              Value: !Ref DBHost
+            - Name: DB_PORT
+              Value: !Ref DBPort
+            - Name: DB_NAME
+              Value: !Ref DBName
+            - Name: DB_USER
+              Value: !Ref DBUser
+            - Name: DB_PASSWORD
+              Value: !Ref DBPassword
+            - Name: EMBEDDING_SERVICE_URL
+              Value: !Ref EmbeddingServiceURL
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref LogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
-          HealthCheck:
-            Command:
-              - CMD-SHELL
-              - 'curl -f http://localhost:8080/health || exit 1'
-            Interval: 30
-            Timeout: 5
-            Retries: 3
-            StartPeriod: 60
 
-  # ECS Service
   ECSService:
     Type: AWS::ECS::Service
     DependsOn:
@@ -284,7 +308,10 @@ Resources:
       - TargetGroup
     Properties:
       ServiceName: !Ref ServiceName
-      Cluster: !Ref ECSCluster
+      Cluster: !If
+        - CreateECSCluster
+        - !Ref ECSCluster
+        - !Ref ClusterName
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: !Ref DesiredCount
       LaunchType: FARGATE
@@ -296,7 +323,7 @@ Resources:
             - !Ref ECSSecurityGroup
       LoadBalancers:
         - ContainerName: !Ref ServiceName
-          ContainerPort: 8080
+          ContainerPort: !Ref ContainerPort
           TargetGroupArn: !Ref TargetGroup
       DeploymentConfiguration:
         MaximumPercent: 200
@@ -307,8 +334,8 @@ Resources:
 
 Outputs:
   ClusterName:
-    Description: Name of the ECS cluster
-    Value: !Ref ECSCluster
+    Description: ECS cluster name used by the service
+    Value: !Ref ClusterName
     Export:
       Name: !Sub '${AWS::StackName}-ClusterName'
 
@@ -318,6 +345,12 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-ServiceName'
 
+  ECSSecurityGroupId:
+    Description: Security group for Search API ECS tasks (allow inbound 5432 on RDS from this SG)
+    Value: !Ref ECSSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-ECSSecurityGroupId'
+
   LoadBalancerDNS:
     Description: DNS name of the Application Load Balancer
     Value: !GetAtt ApplicationLoadBalancer.DNSName
@@ -325,22 +358,16 @@ Outputs:
       Name: !Sub '${AWS::StackName}-LoadBalancerDNS'
 
   LoadBalancerURL:
-    Description: Base URL of the embedding ALB (health at /health)
+    Description: Base URL for the Search API (POST /api/search)
     Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}'
     Export:
       Name: !Sub '${AWS::StackName}-LoadBalancerURL'
 
-  EmbeddingServiceURL:
-    Description: Full URL for Search API and data pipeline (POST /embed)
-    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/embed'
+  SearchApiHealthURL:
+    Description: Health check URL
+    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}/api/search/health'
     Export:
-      Name: !Sub '${AWS::StackName}-EmbeddingServiceURL'
-
-  TargetGroupArn:
-    Description: ARN of the target group
-    Value: !Ref TargetGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-TargetGroupArn'
+      Name: !Sub '${AWS::StackName}-SearchApiHealthURL'
 
   ECRRepositoryURI:
     Condition: CreateECR

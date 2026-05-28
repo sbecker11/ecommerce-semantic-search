@@ -99,8 +99,16 @@ echo "=== Deployment complete ==="
 aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" --query 'Stacks[0].Outputs' --output table
 
 LOAD_BALANCER_URL=$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerURL`].OutputValue' --output text)
+EMBEDDING_SERVICE_URL=$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" --query 'Stacks[0].Outputs[?OutputKey==`EmbeddingServiceURL`].OutputValue' --output text 2>/dev/null || true)
+if [[ -z "${EMBEDDING_SERVICE_URL}" || "${EMBEDDING_SERVICE_URL}" == "None" ]]; then
+  EMBEDDING_SERVICE_URL="${LOAD_BALANCER_URL%/}/embed"
+fi
 echo ""
-echo "EMBEDDING_SERVICE_URL: ${LOAD_BALANCER_URL}"
+echo "Embedding ALB (health):  ${LOAD_BALANCER_URL}/health"
+echo "EMBEDDING_SERVICE_URL:   ${EMBEDDING_SERVICE_URL}"
 echo ""
-echo "Wait a few minutes for tasks to become healthy, then:"
-echo "  export EMBEDDING_SERVICE_URL=${LOAD_BALANCER_URL}"
+echo "Wait a few minutes for tasks to become healthy, then deploy Search API:"
+echo "  export EMBEDDING_SERVICE_URL=${EMBEDDING_SERVICE_URL}"
+echo "  export DB_HOST=<your-rds-endpoint>"
+echo "  export DB_PASSWORD=<your-db-password>"
+echo "  ./infrastructure/cloudformation/deploy-search-api.sh"

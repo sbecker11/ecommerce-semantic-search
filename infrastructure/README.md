@@ -1,79 +1,47 @@
 # Infrastructure
 
-Infrastructure configuration files for deploying the semantic search system.
+Infrastructure configuration for local development and AWS deployment.
 
-## Docker Compose
+## Docker Compose (local)
 
-For local development:
 ```bash
 docker-compose up -d
 ```
 
-This starts:
-- PostgreSQL with pgvector extension
-- Embedding service
+Starts PostgreSQL with pgvector and the embedding service.
 
-## ECS Fargate Deployment
+## AWS deployment (recommended)
 
-### Prerequisites
-- AWS CLI configured
-- ECS cluster created
-- ECR repository created (or use deploy.sh to create)
+Full stack from the project root:
 
-### Deploy Embedding Service
-
-1. Make deploy script executable:
 ```bash
-chmod +x deploy.sh
+./infrastructure/cloudformation/deploy-all.sh
 ```
 
-2. Set environment variables:
+Creates embedding service, RDS PostgreSQL (with `init-db.sql`), and Search API. Credentials go to `cloudformation/.deploy.env` (gitignored).
+
+See [cloudformation/README.md](cloudformation/README.md) for flags, teardown, and troubleshooting.
+
+## Database setup
+
+**Local:** `init-db.sql` runs when the Postgres container starts.
+
+**Production (RDS):** Run `init-db.sql` manually after enabling the pgvector extension. Allow inbound **5432** on the RDS security group from the Search API stack output `ECSSecurityGroupId`.
+
+## Legacy manual ECS push
+
+`infrastructure/deploy.sh` builds and pushes the embedding image to ECR and registers a task definition. It expects an existing ECS cluster and service (or use CloudFormation instead).
+
 ```bash
-export AWS_REGION=us-east-1
+export AWS_REGION=us-west-1
 export ECR_REPO=embedding-service
 export CLUSTER_NAME=ecommerce-cluster
 export SERVICE_NAME=embedding-service
+./infrastructure/deploy.sh
 ```
 
-3. Run deployment:
-```bash
-./deploy.sh
-```
+## Network (production)
 
-### Manual ECS Setup
-
-1. **Create ECS Cluster**:
-```bash
-aws ecs create-cluster --cluster-name ecommerce-cluster
-```
-
-2. **Create Task Definition**:
-```bash
-# Update ecs-task-definition.json with your ECR URI
-aws ecs register-task-definition --cli-input-json file://ecs-task-definition.json
-```
-
-3. **Create Service**:
-```bash
-aws ecs create-service \
-  --cluster ecommerce-cluster \
-  --service-name embedding-service \
-  --task-definition embedding-service \
-  --desired-count 2 \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}"
-```
-
-## Database Setup
-
-The `init-db.sql` script is automatically run when PostgreSQL container starts. It:
-- Enables pgvector extension
-- Creates products table with vector field
-- Creates indexes for efficient vector search
-
-## Network Configuration
-
-For production:
-- Use Application Load Balancer (ALB) in front of ECS service
-- Configure security groups to allow traffic from ALB
-- Use RDS PostgreSQL instead of containerized database
+- ALB in front of each ECS service (created by CloudFormation)
+- RDS in private subnets; Search API tasks need route to RDS (security group rules)
+- Embedding ALB is public; Search API calls it via `EMBEDDING_SERVICE_URL`

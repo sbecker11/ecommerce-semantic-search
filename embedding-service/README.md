@@ -60,4 +60,4 @@ Content-Type: application/json
 
 ## ECS Fargate Deployment
 
-See `../infrastructure/ecs-task-definition.json` for ECS Fargate task definition.
+See `../infrastructure/cloudformation/ecs-embedding-service.yaml` and `deploy.sh` for ECS Fargate deployment.

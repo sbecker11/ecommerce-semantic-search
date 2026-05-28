@@ -3,7 +3,7 @@
 
 set -e
 
-REGION=${AWS_REGION:-us-east-1}
+REGION=${AWS_REGION:-us-west-1}
 ECR_REPO=${ECR_REPO:-embedding-service}
 CLUSTER_NAME=${CLUSTER_NAME:-ecommerce-cluster}
 SERVICE_NAME=${SERVICE_NAME:-embedding-service}

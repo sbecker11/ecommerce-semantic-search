@@ -86,7 +86,7 @@ ecommerce-semantic-search/
 ├── infrastructure/            # Deployment configs
 │   ├── docker-compose.yml     # Local development
 │   ├── init-db.sql            # Database schema
-│   ├── ecs-task-definition.json # ECS Fargate config
+│   ├── cloudformation/          # ECS Fargate (embedding + search-api)
 │   └── deploy.sh              # Deployment script
 │
 ├── evaluation/                # Fine-tuning & evaluation

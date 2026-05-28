@@ -103,6 +103,20 @@ See `src/main/resources/application.yml` for configuration options:
 - Search limits
 - Server port
 
+## AWS deployment
+
+Deploy after the embedding stack and RDS are ready:
+
+```bash
+export DB_HOST=<rds-endpoint>
+export DB_PASSWORD=<password>
+# Optional if ecommerce-embedding-service stack exists:
+# export EMBEDDING_SERVICE_URL=http://<embedding-alb>/embed
+./infrastructure/cloudformation/deploy-search-api.sh
+```
+
+See [infrastructure/cloudformation/README.md](../infrastructure/cloudformation/README.md).
+
 ## Environment Variables
 
 - `DB_HOST`: PostgreSQL host (default: localhost)

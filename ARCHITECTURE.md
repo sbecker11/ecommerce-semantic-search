@@ -68,7 +68,7 @@
 
 **Deployment**:
 - Local: Docker container
-- Production: ECS Fargate (see `infrastructure/ecs-task-definition.json`)
+- Production: ECS Fargate (see `infrastructure/cloudformation/`)
 
 **API Endpoints**:
 - `POST /embed`: Generate embedding for single text

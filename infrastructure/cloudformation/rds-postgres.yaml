@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RDS PostgreSQL 15 with pgvector support for semantic search'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the database
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for the DB subnet group (at least two AZs)
+
+  DBName:
+    Type: String
+    Default: ecommerce
+    Description: Initial database name
+
+  DBUsername:
+    Type: String
+    Default: postgres
+    Description: Master username
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Master password
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: RDS instance class
+
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: Allocated storage (GB)
+
+  PubliclyAccessible:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Publicly accessible (simplifies schema init from your laptop)
+
+  BootstrapCidr:
+    Type: String
+    Default: ''
+    Description: Optional CIDR for temporary Postgres access (e.g. your IP/32). Leave empty when only ECS connects.
+
+  SearchApiSecurityGroupId:
+    Type: String
+    Default: ''
+    Description: ECS security group for Search API tasks (allow 5432). Set after search-api stack deploys.
+
+Conditions:
+  IsPublic: !Equals [!Ref PubliclyAccessible, 'true']
+  HasBootstrapCidr: !Not [!Equals [!Ref BootstrapCidr, '']]
+  HasSearchApiSG: !Not [!Equals [!Ref SearchApiSecurityGroupId, '']]
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for ecommerce RDS
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: ecommerce-rds-subnet-group
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: ecommerce-rds-sg
+      GroupDescription: PostgreSQL access for semantic search
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ecommerce-rds-sg
+
+  BootstrapIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasBootstrapCidr
+    Properties:
+      GroupId: !Ref RDSSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      CidrIp: !Ref BootstrapCidr
+      Description: Temporary bootstrap access for schema init
+
+  SearchApiIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasSearchApiSG
+    Properties:
+      GroupId: !Ref RDSSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref SearchApiSecurityGroupId
+      Description: Search API ECS tasks
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      DBInstanceIdentifier: ecommerce-postgres
+      Engine: postgres
+      EngineVersion: '15'
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: gp3
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      DBName: !Ref DBName
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      PubliclyAccessible: !If [IsPublic, true, false]
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: Name
+          Value: ecommerce-postgres
+
+Outputs:
+  DBEndpoint:
+    Description: RDS endpoint hostname
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export:
+      Name: !Sub '${AWS::StackName}-DBEndpoint'
+
+  DBPort:
+    Description: RDS port
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export:
+      Name: !Sub '${AWS::StackName}-DBPort'
+
+  DBName:
+    Description: Database name
+    Value: !Ref DBName
+    Export:
+      Name: !Sub '${AWS::StackName}-DBName'
+
+  DBUsername:
+    Description: Master username
+    Value: !Ref DBUsername
+    Export:
+      Name: !Sub '${AWS::StackName}-DBUsername'
+
+  RDSSecurityGroupId:
+    Description: RDS security group ID
+    Value: !Ref RDSSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-RDSSecurityGroupId'
+
+  DatabaseURL:
+    Description: JDBC-style host info (password not included)
+    Value: !Sub 'postgresql://${DBUsername}@${DBInstance.Endpoint.Address}:${DBInstance.Endpoint.Port}/${DBName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseURL'

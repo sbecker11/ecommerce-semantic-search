@@ -107,49 +107,34 @@ docker-compose exec -T postgres psql -U postgres -d ecommerce < infrastructure/u
 
 ## Production: ECS Fargate
 
-The **embedding service** is ECS Fargate ready: it runs in a container and can be deployed to AWS without managing EC2 instances.
+Both the **embedding service** and **Search API** have CloudFormation stacks and one-command deploy scripts.
 
-**What’s included:**
+| Component | CloudFormation | Deploy script |
+|-----------|----------------|---------------|
+| Embedding | `infrastructure/cloudformation/ecs-embedding-service.yaml` | `./infrastructure/cloudformation/deploy.sh` |
+| Search API | `infrastructure/cloudformation/ecs-search-api.yaml` | `./infrastructure/cloudformation/deploy-search-api.sh` |
 
-- **Task definition** — `infrastructure/ecs-task-definition.json` (Fargate, 2 vCPU / 4 GB, health check, CloudWatch logs)
-- **Deploy script** — `infrastructure/deploy.sh` builds the image, pushes to ECR, and updates the ECS service
-- **CloudFormation template** — `infrastructure/cloudformation/ecs-embedding-service.yaml` defines the full stack (ECS cluster, service, ALB, security groups, IAM roles, CloudWatch logs)
+Full steps: [infrastructure/cloudformation/README.md](infrastructure/cloudformation/README.md).
 
-**Deploy the embedding service:**
-
-**Option 1: CloudFormation (recommended for production)**
-
-Deploys the complete infrastructure stack:
+**One command (embedding + RDS + Search API):**
 
 ```bash
-cd infrastructure/cloudformation
-# See README.md for full instructions
-aws cloudformation create-stack \
-  --stack-name ecommerce-embedding-service \
-  --template-body file://ecs-embedding-service.yaml \
-  --parameters ParameterKey=ECRImageURI,ParameterValue=<your-ecr-uri> ...
+./infrastructure/cloudformation/deploy-all.sh
 ```
 
-See [infrastructure/cloudformation/README.md](infrastructure/cloudformation/README.md) for details.
+**Or step-by-step:** see [infrastructure/cloudformation/README.md](infrastructure/cloudformation/README.md).
 
-**Option 2: Manual deployment**
+**`EMBEDDING_SERVICE_URL` must include the `/embed` path** (Spring WebClient base URL). Use the CloudFormation output `EmbeddingServiceURL`, not `LoadBalancerURL` alone.
 
-1. Create an ECS cluster and service (see [infrastructure/README.md](infrastructure/README.md)).
-2. From `infrastructure/`, run:
-   ```bash
-   ./deploy.sh
-   ```
-   (Set `AWS_REGION`, `ECR_REPO`, `CLUSTER_NAME`, `SERVICE_NAME` if needed.)
-
-**Where to run the rest:**
+**Where each component runs:**
 
 | Component      | Where to run | Notes |
 |----------------|--------------|--------|
-| **Database**   | **Amazon RDS** (PostgreSQL) | Use RDS with the pgvector extension (Postgres 14+). Create a DB subnet group, enable the extension in your schema, and run `init-db.sql` (or equivalent) to create the `products` table and indexes. Point the Search API and data pipeline at the RDS endpoint. |
-| **Search API** | **ECS Fargate**, **EC2**, or **App Runner** | Run the Spring Boot app in a container. ECS Fargate: add a task definition and service for the search-api image (like the embedding service), put an ALB in front, and set env vars `DB_HOST` (RDS endpoint), `EMBEDDING_SERVICE_URL` (embedding service URL, e.g. ALB or service discovery). EC2: run the JAR or container on an instance. App Runner: deploy the container and configure the same env vars. |
-| **Data pipeline** | **Your machine**, **EC2**, or **scheduled job** | Run the ingestion script when you have new data. Optionally run it on a cron (e.g. EC2 or Lambda + Step Functions) or from a CI/CD pipeline. It needs network access to RDS, the embedding service, and (if used) S3 or other data sources. |
+| **Database**   | **Amazon RDS** (PostgreSQL) | pgvector extension; run `infrastructure/init-db.sql`. Allow port 5432 from Search API ECS security group. |
+| **Search API** | **ECS Fargate** (CloudFormation) | `DB_HOST`, `DB_*`, `EMBEDDING_SERVICE_URL` (with `/embed`). |
+| **Data pipeline** | **Your machine**, **EC2**, or **scheduled job** | Same `DB_*` and `EMBEDDING_SERVICE_URL` as Search API. |
 
-In all cases, the Search API needs `DB_HOST`, `DB_*` credentials, and `EMBEDDING_SERVICE_URL` pointing at the deployed embedding service (e.g. `https://embedding-alb-xxx.us-east-1.elb.amazonaws.com`).
+Legacy manual ECR push: `infrastructure/deploy.sh` (requires an existing ECS service).
 
 ## Ingestion Pipeline
 

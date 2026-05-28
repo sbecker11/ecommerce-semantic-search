@@ -1,147 +1,140 @@
 # CloudFormation Deployment
 
-CloudFormation templates for deploying the embedding service to ECS Fargate on AWS.
+Deploy the full semantic search stack to **ECS Fargate** and **RDS PostgreSQL** on AWS.
 
-**Production deployment only.** These templates are for production (or staging) deployment on AWS. For local development, use Docker Compose; CloudFormation is not required.
+**Local development** uses Docker Compose only; CloudFormation is for AWS.
+
+## One-command deploy (recommended)
+
+From the project root (requires AWS CLI, Docker, ~30–45 minutes first run):
+
+```bash
+./infrastructure/cloudformation/deploy-all.sh
+```
+
+This runs, in order:
+
+1. **Embedding service** — ECS cluster, ALB, ECR (`ecommerce-embedding-service`)
+2. **RDS PostgreSQL 15** — pgvector schema via `init-db.sql` (`ecommerce-rds`)
+3. **Search API** — ECS service, ALB, RDS security group link (`ecommerce-search-api`)
+
+Credentials and endpoints are saved to `infrastructure/cloudformation/.deploy.env` (gitignored).
+
+Optional flags:
+
+| Flag | Effect |
+|------|--------|
+| `--ingest` | Run data pipeline if `data-pipeline/data/amazon_products.json` exists |
+| `--skip-embedding` | Skip step 1 (stack already up) |
+| `--skip-rds` | Skip step 2 |
+| `--skip-search` | Skip step 3 |
+| `--teardown` | Delete all stacks (runs `teardown-all.sh`) |
+
+Teardown only:
+
+```bash
+./infrastructure/cloudformation/teardown-all.sh
+```
+
+## Step-by-step
+
+```bash
+./infrastructure/cloudformation/deploy.sh              # embedding
+./infrastructure/cloudformation/deploy-rds.sh          # RDS + schema
+source infrastructure/cloudformation/.deploy.env       # DB_HOST, DB_PASSWORD, etc.
+./infrastructure/cloudformation/deploy-search-api.sh   # search API + RDS SG link
+```
+
+## Stacks
+
+| Stack | Template | Script |
+|-------|----------|--------|
+| `ecommerce-embedding-service` | `ecs-embedding-service.yaml` | `deploy.sh` |
+| `ecommerce-rds` | `rds-postgres.yaml` | `deploy-rds.sh` |
+| `ecommerce-search-api` | `ecs-search-api.yaml` | `deploy-search-api.sh` |
+
+Shared helpers: `lib/cfn-common.sh`
 
 ## Prerequisites
 
-- AWS CLI configured with appropriate credentials
-- AWS account with permissions to create ECS, VPC, IAM, ALB, ECR resources
-- VPC and subnets (or use default VPC)
-- Docker installed
+- AWS CLI with credentials (ECS, VPC, IAM, ALB, ECR, RDS)
+- Docker
+- Default VPC in your region (`AWS_REGION`, default `us-west-1`)
+- Outbound HTTPS from your machine (schema init uses `docker run postgres:15-alpine psql`)
 
-## Quick Start
+## Environment variables
 
-From the project root, run:
+| Variable | When |
+|----------|------|
+| `AWS_REGION` | All scripts (default `us-west-1`) |
+| `DB_PASSWORD` | Optional; auto-generated on first RDS deploy |
+| `DB_HOST` | Auto from RDS stack or `.deploy.env` |
+| `EMBEDDING_SERVICE_URL` | Auto from embedding stack; **must end with `/embed`** |
+
+See `.deploy.env.example` for the saved file format.
+
+### Embedding URL outputs
+
+| Output | Use |
+|--------|-----|
+| `LoadBalancerURL` | Base ALB; health at `/health` |
+| `EmbeddingServiceURL` | Search API / pipeline: `…/embed` |
+
+Do **not** set `EMBEDDING_SERVICE_URL` to `LoadBalancerURL` alone — Spring expects the `/embed` path.
+
+## RDS notes
+
+- Instance: `ecommerce-postgres`, PostgreSQL **15**, `db.t3.micro`, 20 GB
+- **Publicly accessible** for solo-dev schema init from your laptop
+- Temporary **bootstrap** ingress: your public IP `/32` during `deploy-rds.sh`
+- After Search API deploy, `update-rds-access.sh` allows ECS tasks and removes bootstrap CIDR
+
+## Data ingestion
 
 ```bash
-./infrastructure/cloudformation/deploy.sh
+source infrastructure/cloudformation/.deploy.env
+export DATA_FILE=data-pipeline/data/amazon_products.json   # your dataset
+cd data-pipeline && pip install -r requirements.txt && python ingest_data.py
 ```
 
-Optionally pass `--cleanup` to remove any existing stack and ECR first:
+Or: `./infrastructure/cloudformation/deploy-all.sh --ingest`
+
+## Test
 
 ```bash
-./infrastructure/cloudformation/deploy.sh --cleanup
+source infrastructure/cloudformation/.deploy.env
+SEARCH_URL=$(aws cloudformation describe-stacks --stack-name ecommerce-search-api \
+  --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerURL`].OutputValue' --output text \
+  --region "${AWS_REGION}")
+
+curl -s "${SEARCH_URL}/api/search/health"
+curl -s -X POST "${SEARCH_URL}/api/search" -H 'Content-Type: application/json' \
+  -d '{"query":"wireless headphones","limit":5}'
 ```
-
-The script uses `AWS_REGION` if set (default `us-west-1`), auto-detects VPC and subnets, creates the stack with `DesiredCount=0`, waits for creation, builds and pushes the image, scales to 2 tasks, and prints the embedding service URL. No user input required.
-
-## Manual deployment
-
-If you prefer to run commands yourself:
-
-1. **Cleanup (optional)** – Delete stack and ECR if starting over
-2. **Variables** – `ACCOUNT_ID`, `VPC_ID`, `SUBNET_IDS`, `ECR_URI` from AWS CLI
-3. **Deploy stack** – `DesiredCount=0` to avoid circuit breaker before image push
-4. **Wait** – `aws cloudformation wait stack-create-complete` (use progress monitor from `deploy.sh`)
-5. **Build & push** – Docker build, tag, push to ECR
-6. **Scale up** – `aws ecs update-service --desired-count 2 --force-new-deployment`
-
-See `deploy.sh` for the exact commands.
 
 ## Troubleshooting
 
-**"ECR repository already exists"** – Run `deploy.sh --cleanup`, or delete the stack and ECR manually, then retry.
+**RDS create slow** — Normal 10–15 minutes. `aws rds describe-db-instances --db-instance-identifier ecommerce-postgres`.
 
-**"Invalid type for parameter SubnetIds"** – Use the JSON parameters file (`file:///tmp/cfn-params.json`), not inline `--parameters`.
+**init-db fails** — Ensure bootstrap CIDR matches your IP; re-run `deploy-rds.sh` or check RDS is `available`.
 
-**Stack in ROLLBACK_COMPLETE** – Inspect events, fix the cause, delete the stack, then redeploy:
+**Search API unhealthy** — CloudWatch `/ecs/search-api`; verify RDS SG allows Search API ECS SG.
 
-```bash
-aws cloudformation describe-stack-events --stack-name ${STACK_NAME} --region ${REGION} \
-  --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' --output table
-aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${REGION}
-```
+**Stack ROLLBACK_COMPLETE** — `describe-stack-events`, `delete-stack`, redeploy.
 
-## Updating the Stack
+**ECR already exists** — `deploy.sh --cleanup` or `teardown-all.sh`.
 
-### Update Image
-
-After pushing a new image to ECR, force a new deployment:
+## Updating images
 
 ```bash
-aws ecs update-service \
-  --cluster ecommerce-cluster \
-  --service embedding-service \
-  --force-new-deployment \
-  --region ${REGION}
+aws ecs update-service --cluster ecommerce-cluster --service embedding-service --force-new-deployment --region $AWS_REGION
+aws ecs update-service --cluster ecommerce-cluster --service search-api --force-new-deployment --region $AWS_REGION
 ```
-
-### Update Service Configuration
-
-To change desired count, CPU, memory, etc.:
-
-```bash
-# Regenerate params (ensure VPC_ID, SUBNET_IDS, ECR_URI are set)
-cat > /tmp/cfn-params.json << EOF
-[
-  {"ParameterKey": "ECRImageURI", "ParameterValue": "${ECR_URI}"},
-  {"ParameterKey": "VpcId", "ParameterValue": "${VPC_ID}"},
-  {"ParameterKey": "SubnetIds", "ParameterValue": "${SUBNET_IDS}"},
-  {"ParameterKey": "CreateECRRepository", "ParameterValue": "true"},
-  {"ParameterKey": "DesiredCount", "ParameterValue": "4"},
-  {"ParameterKey": "Cpu", "ParameterValue": "4096"},
-  {"ParameterKey": "Memory", "ParameterValue": "8192"}
-]
-EOF
-
-aws cloudformation update-stack \
-  --stack-name ${STACK_NAME} \
-  --template-body file://ecs-embedding-service.yaml \
-  --parameters file:///tmp/cfn-params.json \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region ${REGION}
-```
-
-## Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `ClusterName` | `ecommerce-cluster` | ECS cluster name |
-| `ServiceName` | `embedding-service` | ECS service name |
-| `ECRImageURI` | *required* | Full ECR image URI |
-| `DesiredCount` | `2` | Number of tasks to run |
-| `Cpu` | `2048` | CPU units (1024 = 1 vCPU) |
-| `Memory` | `4096` | Memory in MB |
-| `VpcId` | *required* | VPC ID |
-| `SubnetIds` | *required* | Comma-separated subnet IDs |
-| `AllowedCIDR` | `0.0.0.0/0` | CIDR allowed to access ALB |
-| `ModelName` | `sentence-transformers/all-MiniLM-L6-v2` | HuggingFace model |
-| `LogRetentionDays` | `7` | CloudWatch log retention |
-| `CreateECRRepository` | `true` | Set to true to let CloudFormation create ECR (Quick Start) |
-
-## Resources Created
-
-- **ECS Cluster** - Container orchestration
-- **ECS Service** - Manages tasks
-- **ECS Task Definition** - Container configuration
-- **Application Load Balancer** - Public-facing HTTP load balancer
-- **Target Group** - Routes traffic to ECS tasks
-- **Security Groups** - ALB and ECS task security
-- **IAM Roles** - Task execution and task roles
-- **CloudWatch Log Group** - Application logs
-- **ECR Repository** - Docker image repository
 
 ## Cleanup
 
-To delete all resources:
-
 ```bash
-aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${REGION}
+./infrastructure/cloudformation/teardown-all.sh
 ```
 
-Note: This will delete the ECR repository and all images if it was created by CloudFormation. Export images first if needed.
-
-## Integration with Search API
-
-After a successful deployment (stack in `CREATE_COMPLETE` or `UPDATE_COMPLETE`), use the `LoadBalancerURL` output as the `EMBEDDING_SERVICE_URL` environment variable for your Search API. Requires `STACK_NAME` and `REGION` to be set (e.g. from Quick Start step 1).
-
-```bash
-export EMBEDDING_SERVICE_URL=$(aws cloudformation describe-stacks \
-  --stack-name ${STACK_NAME} \
-  --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerURL`].OutputValue' \
-  --output text \
-  --region ${REGION})
-```
-
+Deletes stacks in order: search-api → RDS → embedding. Removes `.deploy.env`.

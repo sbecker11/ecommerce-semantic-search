@@ -63,3 +63,4 @@ backup_*.sql
 # Environment
 .env
 .env.local
+infrastructure/cloudformation/.deploy.env
