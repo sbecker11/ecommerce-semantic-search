@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# Delete all CloudFormation stacks (reverse dependency order)
+# Delete all CloudFormation stacks (reverse dependency order).
+# For embedding-only teardown with scale-to-zero, use teardown-embedding.sh instead.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/cfn-common.sh"
 
