@@ -3,6 +3,7 @@
 ## Why the build is slow
 
 The embedding service build takes time because it installs:
+
 - **PyTorch** (~2-3 GB) - Deep learning framework
 - **Transformers** (~500 MB) - HuggingFace library
 - **Sentence Transformers** - Additional dependencies
@@ -13,6 +14,7 @@ The embedding service build takes time because it installs:
 ## Speed up builds
 
 ### Option 1: Use build cache (recommended)
+
 ```bash
 # First build (slow)
 docker build -t embedding-service .
@@ -22,12 +24,14 @@ docker build -t embedding-service .
 ```
 
 ### Option 2: Use faster Dockerfile (for development)
+
 ```bash
 # Use Dockerfile.fast which keeps pip cache
 docker build -f Dockerfile.fast -t embedding-service .
 ```
 
 ### Option 3: Build in background
+
 ```bash
 # Build in background and check progress
 docker build -t embedding-service . > build.log 2>&1 &
@@ -35,7 +39,9 @@ tail -f build.log
 ```
 
 ### Option 4: Use pre-built base image
+
 Consider using a pre-built Python image with ML libraries:
+
 ```dockerfile
 FROM python:3.9-slim
 # Or use: FROM huggingface/transformers-pytorch-cpu:latest
@@ -67,6 +73,7 @@ docker system df
 ## After build completes
 
 The model will download on **first container start**, not during build:
+
 ```bash
 docker run -p 8080:8080 embedding-service
 # First start: Downloads model (~100-200 MB) - takes 1-2 minutes

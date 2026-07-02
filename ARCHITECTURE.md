@@ -2,7 +2,7 @@
 
 ## System Architecture
 
-```
+```text
 ┌─────────────────┐
 │   Client App    │
 └────────┬────────┘
@@ -38,12 +38,14 @@
 **Technology**: Python 3.9+
 
 **Process**:
+
 1. Loads product data from JSON/CSV files
 2. Creates searchable text from product fields (title, description, brand, category)
 3. Calls embedding service to generate vector embeddings
 4. Stores products with embeddings in PostgreSQL
 
 **Key Files**:
+
 - `ingest_data.py`: Main ingestion script
 - `requirements.txt`: Python dependencies
 
@@ -53,7 +55,8 @@
 
 **Purpose**: Generate text embeddings using HuggingFace models
 
-**Technology**: 
+**Technology**:
+
 - Flask (Python)
 - Sentence Transformers (HuggingFace)
 - Docker/ECS Fargate ready
@@ -61,16 +64,19 @@
 **Runtime stack**: Docker → Gunicorn → Flask → Sentence Transformers (PyTorch)
 
 **Features**:
+
 - Single text embedding endpoint
 - Batch embedding endpoint
 - Health check endpoint
 - Configurable model (default: `all-MiniLM-L6-v2`)
 
 **Deployment**:
+
 - Local: Docker container
 - Production: ECS Fargate (see `infrastructure/cloudformation/`)
 
 **API Endpoints**:
+
 - `POST /embed`: Generate embedding for single text
 - `POST /embed/batch`: Generate embeddings for multiple texts
 - `GET /health`: Health check
@@ -82,11 +88,13 @@
 **Technology**: PostgreSQL 14+ with pgvector extension
 
 **Schema**:
+
 - `products` table with vector field (384 dimensions)
 - IVFFlat index for efficient vector similarity search
 - Full-text search indexes on title and description
 
 **Vector Operations**:
+
 - Cosine similarity search using `<=>` operator
 - Results sorted by similarity (1 - distance)
 
@@ -99,16 +107,19 @@
 **Runtime stack**: Docker → Java 17 (Eclipse Temurin) → Spring Boot (embedded Tomcat)
 
 **Features**:
+
 - POST endpoint for semantic search
 - Vector similarity search using pgvector
 - Configurable result limits
 - Error handling and validation
 
 **API Endpoints**:
+
 - `POST /api/search`: Search products by query
 - `GET /api/search/health`: Health check
 
 **Request Format**:
+
 ```json
 {
   "query": "wireless bluetooth headphones",
@@ -117,6 +128,7 @@
 ```
 
 **Response Format**:
+
 ```json
 {
   "results": [
@@ -140,10 +152,12 @@
 **Technology**: Python, Sentence Transformers
 
 **Components**:
+
 - `fine_tune_model.py`: Fine-tune embedding model on e-commerce data
 - `evaluate_search.py`: Evaluate search quality with metrics
 
 **Metrics**:
+
 - NDCG@K (Normalized Discounted Cumulative Gain)
 - MRR (Mean Reciprocal Rank)
 - Precision@K
@@ -152,7 +166,8 @@
 ## Data Flow
 
 ### Ingestion Flow (simple / batch)
-```
+
+```text
 Amazon Dataset → Data Pipeline → Embedding Service → PostgreSQL
 ```
 
@@ -165,7 +180,7 @@ Amazon Dataset → Data Pipeline → Embedding Service → PostgreSQL
 
 *Partner ingestion workflow.* For production, data partners can write to S3; cataloging and embed+load can be automated:
 
-```
+```text
 ┌─────────────────┐     S3 event      ┌──────────────┐     start      ┌──────────────────┐
 │  Data Partners  │ ────────────────► │   Lambda     │ ──────────────► │  Glue Crawler(s) │
 │  (write files)  │                   │  (trigger)   │                │                  │
@@ -203,7 +218,8 @@ Amazon Dataset → Data Pipeline → Embedding Service → PostgreSQL
 This workflow keeps raw data cataloged and then feeds the semantic search database via the embed+load step.
 
 ### Search Flow
-```
+
+```text
 Query → Search API → Embedding Service → Vector Search → Results
 ```
 
@@ -231,16 +247,19 @@ LIMIT 10
 ## Scalability Considerations
 
 ### Embedding Service
+
 - Stateless, can be horizontally scaled
 - ECS Fargate auto-scaling based on CPU/memory
 - Consider using GPU instances for faster inference
 
 ### Database
+
 - Vector index (IVFFlat) for fast similarity search
 - Consider partitioning for large datasets
 - Read replicas for search queries
 
 ### Search API
+
 - Stateless, can be horizontally scaled
 - Connection pooling for database
 - Caching for frequent queries
@@ -255,6 +274,7 @@ LIMIT 10
 ## Monitoring & Observability
 
 Recommended additions:
+
 - Application logs (structured logging)
 - Metrics (Prometheus/CloudWatch)
 - Distributed tracing (AWS X-Ray)

@@ -16,6 +16,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 ### Completed Features
 
 #### Data Engineering Pipeline
+
 - ✅ Python-based ingestion pipeline
 - ✅ Flexible data format support (JSON/CSV)
 - ✅ Integration with embedding service
@@ -23,6 +24,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 - ✅ PostgreSQL storage with vector fields
 
 #### Embedding Service
+
 - ✅ Flask-based service using HuggingFace Sentence Transformers
 - ✅ Single and batch embedding endpoints
 - ✅ Docker containerization
@@ -31,6 +33,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 - ✅ Configurable model (default: `all-MiniLM-L6-v2`)
 
 #### Database
+
 - ✅ PostgreSQL with pgvector extension
 - ✅ Products table with vector field (384 dimensions)
 - ✅ IVFFlat index for efficient vector search
@@ -38,6 +41,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 - ✅ Docker Compose setup
 
 #### Search API
+
 - ✅ Spring Boot 3.2 REST API
 - ✅ POST endpoint for semantic search
 - ✅ Vector similarity search using pgvector
@@ -47,6 +51,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 - ✅ Docker containerization
 
 #### Fine-tuning & Evaluation
+
 - ✅ Fine-tuning script for sentence transformers
 - ✅ Evaluation script with multiple metrics:
   - NDCG@K (Normalized Discounted Cumulative Gain)
@@ -57,6 +62,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 - ✅ Sample data templates
 
 #### Infrastructure
+
 - ✅ Docker Compose for local development
 - ✅ ECS Fargate task definition
 - ✅ Deployment scripts
@@ -64,7 +70,7 @@ This project implements a complete **Semantic Search** solution for e-commerce a
 
 ## Project Structure
 
-```
+```text
 ecommerce-semantic-search/
 ├── data-pipeline/              # Data ingestion pipeline
 │   ├── ingest_data.py         # Main ingestion script
@@ -138,16 +144,19 @@ ecommerce-semantic-search/
 ## Requirements Met
 
 ✅ **Data Engineering Pipeline**
+
 - Ingest Amazon products dataset
 - Generate vector embeddings using LLM
 - Store in database with vector search capability
 
 ✅ **Search Engine**
+
 - POST API using Java Spring Boot
 - Vector search against database
 - Results sorted by relevance
 
 ✅ **Bonus Features**
+
 - Fine-tuning capability
 - Evaluation metrics (NDCG, MRR, Precision@K, Recall@K)
 - Improvement measurement tools

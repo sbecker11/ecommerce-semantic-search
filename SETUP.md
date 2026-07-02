@@ -42,6 +42,7 @@ eval "$(jenv init -)"
 ```
 
 Reload your shell:
+
 ```bash
 source ~/.zshrc  # or source ~/.bash_profile
 ```
@@ -94,7 +95,7 @@ List all installed versions:
 jenv versions
 ```
 
-### Alternative: SDKMAN!
+### Alternative: SDKMAN
 
 If you prefer SDKMAN! (installed via curl, not Homebrew):
 
@@ -114,6 +115,7 @@ docker-compose up -d postgres
 ```
 
 Wait for PostgreSQL to be ready (check logs):
+
 ```bash
 docker-compose logs postgres
 ```
@@ -129,11 +131,13 @@ docker run -d -p 8080:8080 --name embedding-service embedding-service
 ```
 
 Or use docker-compose:
+
 ```bash
 docker-compose up -d embedding-service
 ```
 
 Verify it's running:
+
 ```bash
 curl http://localhost:8080/health
 ```
@@ -149,6 +153,7 @@ cd data-pipeline
 ```
 
 Example data format (JSON):
+
 ```json
 [
   {
@@ -192,6 +197,7 @@ python ingest_data.py
 ```
 
 The pipeline will:
+
 1. Load products from your data file
 2. Generate embeddings using the embedding service
 3. Store products with embeddings in PostgreSQL
@@ -216,6 +222,7 @@ docker run -d -p 8081:8081 \
 ```
 
 Verify it's running:
+
 ```bash
 curl http://localhost:8081/api/search/health
 ```
@@ -253,7 +260,7 @@ python fine_tune_model.py \
   --epochs 3
 ```
 
-4. Update embedding service to use fine-tuned model:
+1. Update embedding service to use fine-tuned model:
    - Update `MODEL_NAME` environment variable
    - Or rebuild Docker image with fine-tuned model
 
@@ -274,6 +281,7 @@ python evaluate_search.py \
 ## Troubleshooting
 
 ### Java Version Issues
+
 - Verify Java 17+ is installed: `java -version`
 - If using jenv, ensure it's properly initialized: `jenv versions`
 - Check JAVA_HOME is set correctly: `echo $JAVA_HOME`
@@ -281,16 +289,19 @@ python evaluate_search.py \
 - If you see "Unsupported class file major version" errors, you need Java 17+
 
 ### Database Connection Issues
+
 - Ensure PostgreSQL is running: `docker-compose ps`
 - Check connection string in environment variables
 - Verify pgvector extension is installed: `docker-compose exec postgres psql -U postgres -d ecommerce -c "CREATE EXTENSION IF NOT EXISTS vector;"`
 
 ### Embedding Service Issues
+
 - Check service logs: `docker logs embedding-service`
 - Verify model download (first run may take time)
 - Check port 8080 is available
 
 ### Search API Issues
+
 - Check database connection settings
 - Verify embedding service URL is accessible
 - Check API logs for errors

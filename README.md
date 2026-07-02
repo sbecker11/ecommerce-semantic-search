@@ -13,7 +13,7 @@ A comprehensive semantic search solution for e-commerce applications with data e
 
 ## Project Structure
 
-```
+```text
 ecommerce-semantic-search/
 ├── data-pipeline/          # Data engineering pipeline
 ├── embedding-service/      # HuggingFace model inference service
@@ -25,6 +25,7 @@ ecommerce-semantic-search/
 ## Quick Start
 
 ### Prerequisites
+
 - Docker and Docker Compose
 - Java 17+
 - Python 3.9+
@@ -37,11 +38,13 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
 **Quick setup:**
 
 1. **Start all services** (PostgreSQL + embedding service + Search API):
+
    ```bash
    ./start_system.sh
    ```
 
    **Other commands:**
+
    ```bash
    ./stop_system.sh      # Stop all services
    ./status_system.sh    # Check service status
@@ -50,6 +53,7 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
    ```
 
 2. **Or start individually**:
+
    ```bash
    docker-compose up -d postgres
    cd embedding-service
@@ -58,6 +62,7 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
    ```
 
 3. **Run data pipeline** (after preparing your data):
+
    ```bash
    cd data-pipeline
    pip install -r requirements.txt
@@ -67,6 +72,7 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
    ```
 
 4. **Start search API**:
+
    ```bash
    cd search-api
    ./mvnw spring-boot:run
@@ -76,6 +82,7 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
    ```
 
 **Verify services** (with timeouts to avoid hanging):
+
 ```bash
 ./test_system.sh
 # Or check embedding health: curl -s --max-time 10 http://localhost:8080/health

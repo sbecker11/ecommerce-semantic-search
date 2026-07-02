@@ -5,6 +5,7 @@ This pipeline ingests Amazon products data and generates vector embeddings for s
 ## Setup
 
 1. Install PostgreSQL client libraries (required for psycopg2 on macOS):
+
 ```bash
 brew install libpq
 export LDFLAGS="-L$(brew --prefix libpq)/lib"
@@ -12,12 +13,14 @@ export CPPFLAGS="-I$(brew --prefix libpq)/include"
 export PATH="$(brew --prefix libpq)/bin:$PATH"
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Set environment variables (or create `.env` file):
+1. Set environment variables (or create `.env` file):
+
 ```bash
 export EMBEDDING_SERVICE_URL=http://localhost:8080/embed
 export DB_HOST=localhost
@@ -28,19 +31,21 @@ export DB_PASSWORD=postgres
 export DATA_FILE=data/amazon_products.json
 ```
 
-4. Download Amazon products dataset:
-   - Visit https://www.kaggle.com/datasets/karkavelrajaj/amazon-products-dataset
+1. Download Amazon products dataset:
+   - Visit <https://www.kaggle.com/datasets/karkavelrajaj/amazon-products-dataset>
    - Or use any Amazon products JSON/CSV file
    - Place it in `data/` directory
 
-5. Ensure embedding service is running:
+2. Ensure embedding service is running:
+
 ```bash
 cd ../embedding-service
 docker build -t embedding-service .
 docker run -p 8080:8080 embedding-service
 ```
 
-6. Run the pipeline:
+1. Run the pipeline:
+
 ```bash
 python ingest_data.py
 ```
@@ -48,6 +53,7 @@ python ingest_data.py
 ## Data Format
 
 The pipeline expects JSON or CSV files with the following fields (flexible mapping):
+
 - `product_id` / `asin` / `id`: Unique product identifier
 - `title` / `product_name`: Product title
 - `description` / `product_description`: Product description

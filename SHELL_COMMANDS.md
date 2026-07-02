@@ -363,11 +363,13 @@ curl -s -X POST http://localhost:8081/api/search \
 ## Quick Reference
 
 ### Ports
+
 - `5432` - PostgreSQL
 - `8080` - Embedding Service
 - `8081` - Search API
 
 ### Environment Variables
+
 ```bash
 export EMBEDDING_SERVICE_URL=http://localhost:8080/embed
 export SEARCH_API_URL=http://localhost:8081
@@ -393,6 +395,7 @@ alias db-count='docker-compose exec -T postgres psql -U postgres -d ecommerce -c
 ```
 
 Then use:
+
 ```bash
 search-test '{"query": "headphones", "limit": 5}' | python3 -m json.tool
 search-health

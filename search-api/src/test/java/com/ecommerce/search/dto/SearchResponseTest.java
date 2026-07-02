@@ -4,7 +4,6 @@ import com.ecommerce.search.model.Product;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -34,15 +33,15 @@ class SearchResponseTest {
         assertEquals("Noise cancelling", result.getDescription());
         assertEquals("Electronics", result.getCategory());
         assertEquals("Sony", result.getBrand());
-        assertEquals(99.99, result.getPrice());
-        assertEquals(89.99, result.getUnitPrice());
-        assertEquals(4.5, result.getRating());
+        assertEquals(99.99, result.getPrice(), 0.001);
+        assertEquals(89.99, result.getUnitPrice(), 0.001);
+        assertEquals(4.5, result.getRating(), 0.001);
         assertEquals(100, result.getReviewCount());
         assertEquals(1, result.getRanking());
         assertEquals(50, result.getVotes());
         assertEquals("http://img.com", result.getImageUrl());
         assertEquals("http://amazon.com", result.getAmazonUrl());
-        assertEquals(0.92, result.getSimilarityScore());
+        assertEquals(0.92, result.getSimilarityScore(), 0.001);
     }
 
     @Test
@@ -58,6 +57,6 @@ class SearchResponseTest {
         assertEquals("prod-2", result.getProductId());
         assertNull(result.getPrice());
         assertNull(result.getRating());
-        assertEquals(0.5, result.getSimilarityScore());
+        assertEquals(0.5, result.getSimilarityScore(), 0.001);
     }
 }

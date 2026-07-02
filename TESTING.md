@@ -1,4 +1,4 @@
-./# Testing Guide
+# Testing Guide
 
 This guide explains how to test the E-commerce Semantic Search system.
 
@@ -17,6 +17,7 @@ SEARCH_API_URL=http://localhost:8081 \
 ```
 
 This script tests:
+
 - Embedding service health
 - Search API health
 - Database connectivity

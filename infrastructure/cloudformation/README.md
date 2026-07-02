@@ -23,7 +23,7 @@ Credentials and endpoints are saved to `infrastructure/cloudformation/.deploy.en
 Optional flags:
 
 | Flag | Effect |
-|------|--------|
+| ------ | -------- |
 | `--ingest` | Run data pipeline if `data-pipeline/data/amazon_products.json` exists |
 | `--skip-embedding` | Skip step 1 (stack already up) |
 | `--skip-rds` | Skip step 2 |
@@ -48,7 +48,7 @@ source infrastructure/cloudformation/.deploy.env       # DB_HOST, DB_PASSWORD, e
 ## Stacks
 
 | Stack | Template | Script |
-|-------|----------|--------|
+| ------- | ---------- | -------- |
 | `ecommerce-embedding-service` | `ecs-embedding-service.yaml` | `deploy.sh` |
 | `ecommerce-rds` | `rds-postgres.yaml` | `deploy-rds.sh` |
 | `ecommerce-search-api` | `ecs-search-api.yaml` | `deploy-search-api.sh` |
@@ -65,7 +65,7 @@ Shared helpers: `lib/cfn-common.sh`
 ## Environment variables
 
 | Variable | When |
-|----------|------|
+| ---------- | ------ |
 | `AWS_REGION` | All scripts (default `us-west-1`) |
 | `DB_PASSWORD` | Optional; auto-generated on first RDS deploy |
 | `DB_HOST` | Auto from RDS stack or `.deploy.env` |
@@ -124,9 +124,21 @@ curl -s -X POST "${SEARCH_URL}/api/search" -H 'Content-Type: application/json' \
 
 **ECR already exists** — `deploy.sh --cleanup` or `teardown-embedding.sh` / `teardown-all.sh`.
 
-**Stack delete stuck** — Fargate tasks still running. Run `teardown-embedding.sh` (scales service to 0 first) or manually: `aws ecs update-service --cluster ecommerce-cluster --service embedding-service --desired-count 0 --region us-west-1`
+**Stack delete stuck** — Fargate tasks still running. Run `teardown-embedding.sh` (scales service to 0
+first) or manually:
 
-**Stack DELETE_FAILED on ECR** — Repository still had images. `teardown-embedding.sh` force-deletes ECR and retries stack delete automatically; or run `aws ecr delete-repository --repository-name embedding-service --force` then `aws cloudformation delete-stack --stack-name ecommerce-embedding-service`.
+```bash
+aws ecs update-service --cluster ecommerce-cluster --service embedding-service \
+  --desired-count 0 --region us-west-1
+```
+
+**Stack DELETE_FAILED on ECR** — Repository still had images. `teardown-embedding.sh` force-deletes ECR
+and retries stack delete automatically; or:
+
+```bash
+aws ecr delete-repository --repository-name embedding-service --force
+aws cloudformation delete-stack --stack-name ecommerce-embedding-service
+```
 
 ## Updating images
 
@@ -137,18 +149,22 @@ aws ecs update-service --cluster ecommerce-cluster --service search-api --force-
 
 ## Cleanup
 
-Tear down AWS resources when you no longer need the deployed stack. Everything is recreatable from this repo via `deploy-all.sh` or the step-by-step deploy scripts.
+Tear down AWS resources when you no longer need the deployed stack. Everything is recreatable from
+this repo via `deploy-all.sh` or the step-by-step deploy scripts.
 
 | Script | Scope |
-|--------|--------|
+| -------- | -------- |
 | `teardown-embedding.sh` | Embedding stack only (`ecommerce-embedding-service`) |
 | `teardown-all.sh` | All project stacks: search-api → RDS → embedding |
 
-Both default to **account `286103606369`** and **region `us-west-1`** (via `AWS_REGION`). The embedding script aborts if `aws sts get-caller-identity` shows a different account. Neither script touches `linkage-engine` resources.
+Both default to **account `286103606369`** and **region `us-west-1`** (via `AWS_REGION`). The embedding
+script aborts if `aws sts get-caller-identity` shows a different account. Neither script touches
+`linkage-engine` resources.
 
 ### Embedding stack only
 
-Scales `embedding-service` to 0 (avoids stuck CloudFormation deletes), deletes stack `ecommerce-embedding-service`, then cleans leftover ECR repo, log groups, and orphan ECS cluster.
+Scales `embedding-service` to 0 (avoids stuck CloudFormation deletes), deletes stack
+`ecommerce-embedding-service`, then cleans leftover ECR repo, log groups, and orphan ECS cluster.
 
 ```bash
 ./infrastructure/cloudformation/teardown-embedding.sh           # dry-run (no changes)
@@ -161,6 +177,7 @@ Scales `embedding-service` to 0 (avoids stuck CloudFormation deletes), deletes s
 ./infrastructure/cloudformation/teardown-all.sh
 ```
 
-Deletes stacks in reverse dependency order and removes `.deploy.env` when present. For a stuck embedding delete, prefer `teardown-embedding.sh --execute` first.
+Deletes stacks in reverse dependency order and removes `.deploy.env` when present. For a stuck
+embedding delete, prefer `teardown-embedding.sh --execute` first.
 
 After any teardown, recheck **AWS Cost Explorer in 24–48h**; ALB and Fargate charges can lag a day or two.

@@ -29,11 +29,13 @@ docker run -p 8080:8080 embedding-service
 ## API Endpoints
 
 ### Health Check
+
 ```bash
 GET /health
 ```
 
 ### Single Embedding
+
 ```bash
 POST /embed
 Content-Type: application/json
@@ -44,6 +46,7 @@ Content-Type: application/json
 ```
 
 ### Batch Embeddings
+
 ```bash
 POST /embed/batch
 Content-Type: application/json

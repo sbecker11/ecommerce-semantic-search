@@ -41,6 +41,7 @@ Coverage report is written to `target/site/jacoco/index.html`. Open in a browser
 ```
 
 Or with Docker:
+
 ```bash
 docker build -t search-api .
 docker run -p 8081:8081 \
@@ -56,6 +57,7 @@ docker run -p 8081:8081 \
 ## API Endpoints
 
 ### Search Products
+
 ```bash
 POST /api/search
 Content-Type: application/json
@@ -67,6 +69,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "results": [
@@ -90,6 +93,7 @@ Response:
 ```
 
 ### Health Check
+
 ```bash
 GET /api/search/health
 ```
@@ -124,7 +128,7 @@ See [infrastructure/cloudformation/README.md](../infrastructure/cloudformation/R
 - `DB_NAME`: Database name (default: ecommerce)
 - `DB_USER`: Database user (default: postgres)
 - `DB_PASSWORD`: Database password (default: postgres)
-- `EMBEDDING_SERVICE_URL`: Embedding service URL (default: http://localhost:8080/embed)
+- `EMBEDDING_SERVICE_URL`: Embedding service URL (default: <http://localhost:8080/embed>)
 - `SERVER_PORT`: API server port (default: 8081)
 - `SEARCH_LIMIT`: Default search limit (default: 10)
 - `SEARCH_MAX_LIMIT`: Maximum search limit (default: 100)

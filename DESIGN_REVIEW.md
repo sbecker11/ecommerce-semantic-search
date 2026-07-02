@@ -9,7 +9,7 @@ Design and implement a Semantic Search capability for an e-commerce application.
 **Data Engineering Pipeline**
 
 - Refer to this open source dataset of Amazon products. Ingest the data to a database of your choice, which should have the vector search capability.
-- Choose an LLM (Large Language Model) model of your choice from https://huggingface.co/ and deploy its inference endpoint as a service, preferably in an ECS (Elastic Container Service) Fargate cluster.
+- Choose an LLM (Large Language Model) model of your choice from <https://huggingface.co/> and deploy its inference endpoint as a service, preferably in an ECS (Elastic Container Service) Fargate cluster.
 - The ingested data should have vector fields which could be generated on certain fields of your choice; they should be relevant to the searchable fields.
 
 **Search Engine**
@@ -241,7 +241,7 @@ To distribute search worldwide — low latency for users in multiple continents 
 ### Summary: What Changes for Worldwide Distribution
 
 | Concern | Single-region (current) | Worldwide distribution |
-|--------|--------------------------|-------------------------|
+| -------- | -------------------------- | ------------------------- |
 | Search API / Embedding | One region | Deploy in N regions; Route 53 latency/geo routing |
 | Database | One Postgres | Aurora Global DB or cross-region read replicas; index per region |
 | Product images / static content | Not in scope or single S3 | S3 + CloudFront (CDN); API returns CDN URLs |

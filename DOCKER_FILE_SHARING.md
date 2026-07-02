@@ -2,7 +2,7 @@
 
 To enable automatic database initialization, you need to configure Docker Desktop to share the project directory.
 
-## Steps:
+## Steps
 
 1. **Open Docker Desktop**
    - Click the Docker icon (whale) in your menu bar (top right)
@@ -37,19 +37,22 @@ To enable automatic database initialization, you need to configure Docker Deskto
    - Wait for Docker to finish restarting (whale icon stops animating)
 
 7. **Test the setup**
+
    ```bash
    cd /Users/sbecker11/workspace-ecommerce-semantic-search/ecommerce-semantic-search
    docker-compose down
    docker-compose up -d postgres
    ```
 
-## If you still can't find it:
+## If you still can't find it
 
 **Option A: Check Docker Desktop version**
+
 - Some newer versions auto-save changes
 - Try just adding the directory and closing Settings
 
 **Option B: Use manual initialization instead**
+
 - You don't need file sharing if you use manual initialization
 - See the "Alternative" section below
 
@@ -66,6 +69,7 @@ docker-compose exec -T postgres psql -U postgres -d ecommerce < infrastructure/i
 ```
 
 Or use the helper script:
+
 ```bash
 ./infrastructure/init-database.sh
 ```

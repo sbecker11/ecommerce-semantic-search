@@ -9,6 +9,7 @@ Fine-tune the sentence transformer model on e-commerce data to improve search re
 ### Prepare Training Data
 
 Create `data/training_data.json`:
+
 ```json
 [
   {
@@ -23,6 +24,7 @@ Create `data/training_data.json`:
 ### Prepare Evaluation Data
 
 Create `data/eval_data.json`:
+
 ```json
 [
   {
@@ -56,6 +58,7 @@ Evaluate search relevancy using metrics: NDCG, MRR, Precision@K, Recall@K.
 ### Prepare Test Data
 
 Create `data/test_queries.json`:
+
 ```json
 [
   {
