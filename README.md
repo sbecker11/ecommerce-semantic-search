@@ -1,5 +1,7 @@
 # E-commerce Semantic Search
 
+<a href="https://raw.githubusercontent.com/sbecker11/ecommerce-semantic-search/main/docs/architecture.png" target="_blank" rel="noopener noreferrer"><img src="docs/architecture-icon.png" width="420" height="420" alt="ecommerce-semantic-search architecture (click for the full diagram)"></a>
+
 [![CI](https://github.com/sbecker11/ecommerce-semantic-search/actions/workflows/ci.yml/badge.svg)](https://github.com/sbecker11/ecommerce-semantic-search/actions/workflows/ci.yml)
 
 A comprehensive semantic search solution for e-commerce applications with data engineering pipeline and search API.
