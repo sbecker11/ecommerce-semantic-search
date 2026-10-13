@@ -1,12 +1,12 @@
 # E-commerce Semantic Search
 
+<a href="https://raw.githubusercontent.com/sbecker11/ecommerce-semantic-search/main/docs/architecture.png" target="_blank" rel="noopener noreferrer"><img src="docs/architecture-icon.png" width="420" height="420" alt="ecommerce-semantic-search architecture (click for the full diagram)"></a>
+
 <!-- SUMMARY:START generated from workspace-linkedin-profile/Projects.json by scripts/build_readme_header.py; edit there -->
 Spring Boot + pgvector + MiniLM semantic search, deployed on ECS Fargate.
 
 **Skills:** Spring Boot · Java · Semantic Search · pgvector · PostgreSQL · Hugging Face MiniLM Embeddings · Python (Programming Language) · REST APIs · AWS CloudFormation · AWS ECS Fargate · AWS Lambda · Amazon S3 · Docker · Docker Compose · Automated Software Testing (JUnit/Jest/Vitest/PyTest)
 <!-- SUMMARY:END -->
-
-<a href="https://raw.githubusercontent.com/sbecker11/ecommerce-semantic-search/main/docs/architecture.png" target="_blank" rel="noopener noreferrer"><img src="docs/architecture-icon.png" width="420" height="420" alt="ecommerce-semantic-search architecture (click for the full diagram)"></a>
 
 [![CI](https://github.com/sbecker11/ecommerce-semantic-search/actions/workflows/ci.yml/badge.svg)](https://github.com/sbecker11/ecommerce-semantic-search/actions/workflows/ci.yml)
 
