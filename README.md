@@ -1,6 +1,6 @@
 # E-commerce Semantic Search
 
-<a href="https://raw.githubusercontent.com/sbecker11/ecommerce-semantic-search/main/docs/architecture.png" target="_blank" rel="noopener noreferrer"><img src="docs/architecture-icon.png" width="420" height="420" alt="ecommerce-semantic-search architecture (click for the full diagram)"></a>
+<a href="https://raw.githubusercontent.com/sbecker11/ecommerce-semantic-search/main/docs/architecture.png" target="_blank" rel="noopener noreferrer"><img src="docs/architecture-icon.png" width="300"alt="ecommerce-semantic-search architecture (click for the full diagram)"></a>
 
 <!-- SUMMARY:START generated from workspace-linkedin-profile/Projects.json by scripts/build_readme_header.py; edit there -->
 Spring Boot + pgvector + MiniLM semantic search, deployed on ECS Fargate.
